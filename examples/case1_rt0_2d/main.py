@@ -35,8 +35,8 @@ def main():
 
     b_faces = sd.tags["domain_boundary_faces"]
     b_faces[np.isclose(sd.face_centers[1, :], 0)] = False
-    b_faces = np.tile(b_faces, 3)
-    b_faces = np.hstack((b_faces, np.zeros(3 * sd.num_cells, dtype=bool)))
+    b_faces = np.tile(b_faces, 2 + 1)
+    b_faces = np.hstack((b_faces, np.zeros((2 + 1) * sd.num_cells, dtype=bool)))
 
     rhs = np.zeros(spp.shape[0])
     force = lambda x: np.array([0, -1])

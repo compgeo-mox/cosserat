@@ -15,7 +15,6 @@ def main():
     key = "cosserat"
     vec_bdm1 = pg.VecBDM1(key)
     vec_p0 = pg.VecPwConstants(key)
-    vec_rt0 = pg.VecRT0(key)
 
     data = {pp.PARAMETERS: {key: {"mu": 0.5, "lambda": 0.5}}}
     Ms = vec_bdm1.assemble_lumped_matrix(sd, data)  # TODO the data are not considered
@@ -66,6 +65,7 @@ def main():
     cell_u = cell_u.reshape((3, -1))
     cell_r = cell_r.reshape((3, -1))
     # cell_w = cell_w.reshape((9, -1))
+    # cell_sigma = cell_sigma.reshape((9, -1))
 
     folder = os.path.dirname(os.path.abspath(__file__))
     save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)

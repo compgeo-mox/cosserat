@@ -1,7 +1,5 @@
 *.geo_unrolled
 *.vtu
 *.pvd
-*.pvd
-
 *.pvsm
 *.msh

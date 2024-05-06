@@ -15,7 +15,7 @@ def main():
     key = "cosserat"
     vec_bdm1 = pg.VecBDM1(key)
     vec_p0 = pg.VecPwConstants(key)
-    rt0 = pg.RT0(key)
+    vec_rt0 = pg.VecRT0(key)
 
     data = {pp.PARAMETERS: {key: {"mu": 0.5, "lambda": 0.5}}}
     Ms = vec_bdm1.assemble_lumped_matrix(sd, data)  # TODO the data are not considered
@@ -35,8 +35,9 @@ def main():
                 format = "csc")
     # fmt: on
 
+    # Set essential boundary conditions on all faces except the ones at the bottom
     b_faces = sd.tags["domain_boundary_faces"]
-    # b_faces[np.isclose(sd.face_centers[1, :], 0)] = False
+    b_faces[np.isclose(sd.face_centers[2, :], 0)] = False
     b_faces = np.tile(b_faces, (3 * 3) * 2)
     b_faces = np.hstack((b_faces, np.zeros(3 * 2 * sd.num_cells, dtype=bool)))
 
@@ -57,7 +58,7 @@ def main():
     sigma, w, u, r = np.split(x, split_idx)
 
     cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
-    cell_w = rt0.eval_at_cell_centers(sd) @ vec_bdm1.proj_to_RT0(sd) @ w
+    cell_w = vec_rt0.eval_at_cell_centers(sd) @ vec_bdm1.proj_to_RT0(sd) @ w
     cell_u = vec_p0.eval_at_cell_centers(sd) @ u
     cell_r = vec_p0.eval_at_cell_centers(sd) @ r
 

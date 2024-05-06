@@ -31,8 +31,9 @@ def main():
                     [-asym,  -div_w, None,   None]], format = "csc")
     # fmt: on
 
+    # Set essential boundary conditions on all faces except the ones at the bottom
     b_faces = sd.tags["domain_boundary_faces"]
-    # b_faces[np.isclose(sd.face_centers[1, :], 0)] = False
+    b_faces[np.isclose(sd.face_centers[2, :], 0)] = False
     b_faces = np.tile(b_faces, 6)
     b_faces = np.hstack((b_faces, np.zeros(6 * sd.num_cells, dtype=bool)))
 

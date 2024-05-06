@@ -7,8 +7,8 @@ import pygeon as pg
 
 
 def main():
-    # sd = pg.unit_grid(3, 0.25, as_mdg=False)
-    sd = pp.StructuredTetrahedralGrid([4] * 3)
+    sd = pg.unit_grid(3, 0.25, as_mdg=False)
+    # sd = pp.StructuredTetrahedralGrid([4] * 3)
     pg.convert_from_pp(sd)
     sd.compute_geometry()
 

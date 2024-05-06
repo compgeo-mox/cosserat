@@ -63,6 +63,8 @@ def main():
     cell_u = np.hstack((cell_u, np.zeros(sd.num_cells)))
     cell_u = cell_u.reshape((3, -1))
 
+    cell_w = cell_w.reshape((3, -1), order="F")
+
     folder = os.path.dirname(os.path.abspath(__file__))
     save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
     save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r), ("cell_w", cell_w)])

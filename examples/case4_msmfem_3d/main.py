@@ -8,7 +8,7 @@ import pygeon as pg
 
 def main():
     # sd = pg.unit_grid(3, 0.25, as_mdg=False)
-    sd = pp.StructuredTetrahedralGrid([1] * 3)
+    sd = pp.StructuredTetrahedralGrid([4] * 3)
     pg.convert_from_pp(sd)
     sd.compute_geometry()
 
@@ -42,7 +42,7 @@ def main():
     b_faces = np.hstack((b_faces, np.zeros(3 * 2 * sd.num_cells, dtype=bool)))
 
     rhs = np.zeros(spp.shape[0])
-    force = lambda x: np.array([0, -1, 0])
+    force = lambda x: np.array([0, 0, -1])
     force_p0 = vec_p0.interpolate(sd, force)
     force_rhs = Mu @ force_p0
 
@@ -58,16 +58,18 @@ def main():
     sigma, w, u, r = np.split(x, split_idx)
 
     cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
-    cell_w = vec_rt0.eval_at_cell_centers(sd) @ vec_bdm1.proj_to_RT0(sd) @ w
+    cell_w = vec_bdm1.eval_at_cell_centers(sd) @ w
     cell_u = vec_p0.eval_at_cell_centers(sd) @ u
     cell_r = vec_p0.eval_at_cell_centers(sd) @ r
 
-    # we need to add the z component for the exporting
+    # we need to reshape for exporting
     cell_u = cell_u.reshape((3, -1))
+    cell_r = cell_r.reshape((3, -1))
+    # cell_w = cell_w.reshape((9, -1))
 
     folder = os.path.dirname(os.path.abspath(__file__))
     save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
-    save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r), ("cell_w", cell_w)])
+    save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
 
 
 if __name__ == "__main__":

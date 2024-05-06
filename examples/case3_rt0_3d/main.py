@@ -22,7 +22,7 @@ def main():
 
     div_s = Mu @ vec_rt0.assemble_diff_matrix(sd)
     asym = Mr @ vec_rt0.assemble_asym_matrix(sd)
-    div_w = Mr @ vec_rt0.assemble_diff_matrix(sd)
+    div_w = div_s
 
     # fmt: off
     spp = sps.bmat([[     Ms, None, div_s.T, asym.T],
@@ -58,6 +58,7 @@ def main():
     cell_u = vec_p0.eval_at_cell_centers(sd) @ u
     cell_r = vec_p0.eval_at_cell_centers(sd) @ r
 
+    # we need to reshape for exporting
     cell_u = cell_u.reshape((3, -1))
     cell_r = cell_r.reshape((3, -1))
 

@@ -15,7 +15,6 @@ def main():
     bdm1 = pg.BDM1(key)
     vec_p0 = pg.VecPwConstants(key)
     p0 = pg.PwConstants(key)
-    rt0 = pg.RT0(key)
 
     data = {pp.PARAMETERS: {key: {"mu": 0.5, "lambda": 0.5}}}
     Ms = vec_bdm1.assemble_lumped_matrix(sd, data)  # TODO the data are not considered
@@ -47,7 +46,6 @@ def main():
     split_idx = np.cumsum([vec_bdm1.ndof(sd), bdm1.ndof(sd), vec_p0.ndof(sd)])
 
     rhs[split_idx[1] : split_idx[2]] += force_rhs
-    # rhs[: vec_rt0.ndof(sd)] = bc
 
     ls = pg.LinearSystem(spp, rhs)
     ls.flag_ess_bc(b_faces, np.zeros(spp.shape[0]))
@@ -56,13 +54,16 @@ def main():
     sigma, w, u, r = np.split(x, split_idx)
 
     cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
-    cell_w = rt0.eval_at_cell_centers(sd) @ bdm1.proj_to_RT0(sd) @ w
+    cell_w = bdm1.eval_at_cell_centers(sd) @ w
     cell_u = vec_p0.eval_at_cell_centers(sd) @ u
     cell_r = p0.eval_at_cell_centers(sd) @ r
 
     # we need to add the z component for the exporting
     cell_u = np.hstack((cell_u, np.zeros(sd.num_cells)))
     cell_u = cell_u.reshape((3, -1))
+
+    # we need to reshape for exporting
+    cell_w = cell_w.reshape((3, -1))
 
     folder = os.path.dirname(os.path.abspath(__file__))
     save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)

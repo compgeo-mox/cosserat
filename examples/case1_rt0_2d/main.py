@@ -14,7 +14,9 @@ from analytical_solutions import exact_sol_2d
 def main(mesh_size):
 
     # return the exact solution and related rhs
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = exact_sol_2d()
+    mu_s, lambda_s = 0.5, 1
+    mu_w = 0.5
+    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = exact_sol_2d(mu_s, lambda_s, mu_w)
 
     sd = pg.unit_grid(2, mesh_size, as_mdg=False)
     sd.compute_geometry()
@@ -25,11 +27,13 @@ def main(mesh_size):
     vec_p0 = pg.VecPwConstants(key)
     p0 = pg.PwConstants(key)
 
-    split_idx = np.cumsum([vec_rt0.ndof(sd), rt0.ndof(sd), vec_p0.ndof(sd)])
+    dofs = np.array([vec_rt0.ndof(sd), rt0.ndof(sd), vec_p0.ndof(sd), p0.ndof(sd)])
+    split_idx = np.cumsum(dofs[:-1])
 
-    data = {pp.PARAMETERS: {key: {"mu": 0.5, "lambda": 0}}}
+    data = {pp.PARAMETERS: {key: {"mu": mu_w, "lambda": lambda_s}}}
+
     Ms = vec_rt0.assemble_mass_matrix(sd, data)
-    Mw = rt0.assemble_mass_matrix(sd, data)
+    Mw = rt0.assemble_mass_matrix(sd)  # attention to the data here
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = p0.assemble_mass_matrix(sd)
 
@@ -44,10 +48,6 @@ def main(mesh_size):
                     [ -asym, -div_w,    None,    None]], format = "csc")
     # fmt: on
 
-    b_faces = np.zeros(sd.num_faces, dtype=bool)
-    b_faces = np.tile(b_faces, 2 + 1)
-    b_faces = np.hstack((b_faces, np.zeros((2 + 1) * sd.num_cells, dtype=bool)))
-
     rhs = np.zeros(spp.shape[0])
     force_u = Mu @ vec_p0.interpolate(sd, lambda x: f_u(x)[: sd.dim].ravel())
     force_r = Mr @ p0.interpolate(sd, lambda x: f_r(x)[sd.dim]).ravel()
@@ -56,23 +56,15 @@ def main(mesh_size):
     rhs[split_idx[2] :] += force_r
 
     ls = pg.LinearSystem(spp, rhs)
-    ls.flag_ess_bc(b_faces, np.zeros(spp.shape[0]))
     x = ls.solve()
 
     sigma, w, u, r = np.split(x, split_idx)
 
     # compute the error
-    sigma_ex_int = vec_rt0.interpolate(sd, sigma_ex)
-    err_sigma = err(sigma, sigma_ex_int, Ms)
-
-    w_ex_int = rt0.interpolate(sd, lambda x: w_ex(x)[sd.dim].ravel())
-    err_w = err(w, w_ex_int, Mw)
-
-    u_ex_int = vec_p0.interpolate(sd, lambda x: u_ex(x)[: sd.dim].ravel())
-    err_u = err(u, u_ex_int, Mu)
-
-    r_ex_int = p0.interpolate(sd, lambda x: r_ex(x)[sd.dim]).ravel()
-    err_r = err(r, r_ex_int, Mr)
+    err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
+    err_w = rt0.error_l2(sd, w, lambda x: w_ex(x)[sd.dim].ravel())
+    err_u = vec_p0.error_l2(sd, u, lambda x: u_ex(x)[: sd.dim].ravel())
+    err_r = p0.error_l2(sd, r, lambda x: r_ex(x)[sd.dim][0])
 
     if False:
         # compute the projections
@@ -91,17 +83,18 @@ def main(mesh_size):
         save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
         save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r), ("cell_w", cell_w)])
 
-    return err_sigma, err_w, err_u, err_r, np.amax(sd.cell_diameters())
+    h = np.amax(sd.cell_diameters())
+    return err_sigma, err_w, err_u, err_r, h, *dofs, spp.nnz
 
 
 if __name__ == "__main__":
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))  # 5
     errs = np.vstack([main(h) for h in mesh_size])
-
-    order_sigma = order(errs[:, 0], errs[:, -1])
-    order_w = order(errs[:, 1], errs[:, -1])
-    order_u = order(errs[:, 2], errs[:, -1])
-    order_r = order(errs[:, 3], errs[:, -1])
-
     print(errs)
+
+    order_sigma = order(errs[:, 0], errs[:, 4])
+    order_w = order(errs[:, 1], errs[:, 4])
+    order_u = order(errs[:, 2], errs[:, 4])
+    order_r = order(errs[:, 3], errs[:, 4])
+
     print(order_sigma, order_w, order_u, order_r)

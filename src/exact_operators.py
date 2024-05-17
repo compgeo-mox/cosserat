@@ -21,13 +21,20 @@ def matrix_divergence(sigma, R):
     return sp.diff(sigma[:, 0], x) + sp.diff(sigma[:, 1], y) + sp.diff(sigma[:, 2], z)
 
 
-def compute_all(u, r, R):
+def compute_all(dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R):
 
-    # Stress tensor with, mu = 0.5 and lambda = 0
-    sigma = vector_gradient(u, R) + asym_T(r)
+    if dim == 2:
+        I = sp.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 0]])
+    else:
+        I = sp.Identity(3).as_explicit()
 
-    # Micro stress tensor with, mu = 0.5 and lambda = 0
-    w = vector_gradient(r, R)
+    # sigma
+    tau = vector_gradient(u, R) + asym_T(r)
+    sigma = 2 * mu_s * tau + lambda_s * sp.trace(tau) * I
+
+    # w
+    tau = vector_gradient(r, R)
+    w = 2 * mu_w * tau + lambda_w * sp.trace(tau) * I
 
     # Compute the source term
     f_u = -matrix_divergence(sigma, R)

@@ -90,7 +90,7 @@ def main(mesh_size):
 
 
 if __name__ == "__main__":
-    mesh_size = np.power(2.0, -np.arange(2, 5))
+    mesh_size = [0.5, 0.4, 0.3, 0.2, 0.1]
     errs = np.vstack([main(h) for h in mesh_size])
 
     order_sigma = order(errs[:, 0], errs[:, -1])

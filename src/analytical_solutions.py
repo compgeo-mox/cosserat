@@ -8,7 +8,7 @@ sys.path.append("./src")
 from exact_operators import compute_all, make_as_lambda
 
 
-def exact_sol_2d():
+def exact_sol_2d(mu_s, lambda_s, mu_w, lambda_w=0):
     R = ReferenceFrame("R")
     x, y, _ = R.varlist
 
@@ -22,13 +22,13 @@ def exact_sol_2d():
     r = sp.Matrix([0, 0, r_z])
 
     # compute the stress and micro stress tensor and the source terms
-    sigma, w, f_u, f_r = compute_all(u, r, R)
+    sigma, w, f_u, f_r = compute_all(2, u, r, mu_s, lambda_s, mu_w, lambda_w, R)
 
     # lambdify the exact solution
     return make_as_lambda(sigma, w, u, r, f_u, f_r, R)
 
 
-def exact_sol_3d():
+def exact_sol_3d(mu_s, lambda_s, mu_w, lambda_w):
     R = ReferenceFrame("R")
     x, y, z = R.varlist
 
@@ -45,7 +45,7 @@ def exact_sol_3d():
     r = sp.Matrix([r_x, r_y, r_z])
 
     # compute the stress and micro stress tensor and the source terms
-    sigma, w, f_u, f_r = compute_all(u, r, R)
+    sigma, w, f_u, f_r = compute_all(3, u, r, mu_s, lambda_s, mu_w, lambda_w, R)
 
     # lambdify the exact solution
     return make_as_lambda(sigma, w, u, r, f_u, f_r, R)

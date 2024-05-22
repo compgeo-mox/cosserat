@@ -15,7 +15,7 @@ def main(mesh_size):
 
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
-    mu_w = 0.5
+    mu_w = mu_s
     sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = exact_sol_2d(mu_s, lambda_s, mu_w)
 
     sd = pg.unit_grid(2, mesh_size, as_mdg=False)

@@ -1,20 +1,35 @@
-import os
+import os, sys
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 import pygeon as pg
 
+sys.path.append("./src")
 
-def main():
-    sd = pg.unit_grid(3, 0.25, as_mdg=False)
+from functions import order
+from analytical_solutions import exact_sol_3d
+
+
+def main(mesh_size):
+
+    # return the exact solution and related rhs
+    mu_s, lambda_s = 0.5, 1
+    mu_w, lambda_w = mu_s, lambda_s
+    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = exact_sol_3d(mu_s, lambda_s, mu_w, lambda_w)
+
+    sd = pg.unit_grid(3, mesh_size, as_mdg=False)
     sd.compute_geometry()
 
     key = "cosserat"
     vec_rt0 = pg.VecRT0(key)
     vec_p0 = pg.VecPwConstants(key)
 
-    data = {pp.PARAMETERS: {key: {"mu": 0.5, "lambda": 0.5}}}
+    dofs = np.array([vec_rt0.ndof(sd)] * 2 + [vec_p0.ndof(sd)] * 2)
+    split_idx = np.cumsum(dofs[:-1])
+
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
+
     Ms = vec_rt0.assemble_mass_matrix(sd, data)
     Mw = Ms
     Mu = vec_p0.assemble_mass_matrix(sd)
@@ -25,47 +40,56 @@ def main():
     div_w = div_s
 
     # fmt: off
-    spp = sps.bmat([[     Ms, None, div_s.T, asym.T],
-                    [   None,   Mw, None, div_w.T],
-                    [ -div_s,  None, None,   None],
-                    [-asym,  -div_w, None,   None]], format = "csc")
+    spp = sps.bmat([[    Ms,   None, div_s.T,  asym.T],
+                    [  None,     Mw,    None, div_w.T],
+                    [-div_s,   None,    None,    None],
+                    [ -asym, -div_w,    None,    None]], format = "csc")
     # fmt: on
 
-    # Set essential boundary conditions on all faces except the ones at the bottom
-    b_faces = sd.tags["domain_boundary_faces"]
-    b_faces[np.isclose(sd.face_centers[2, :], 0)] = False
-    b_faces = np.tile(b_faces, 6)
-    b_faces = np.hstack((b_faces, np.zeros(6 * sd.num_cells, dtype=bool)))
-
     rhs = np.zeros(spp.shape[0])
-    force = lambda x: np.array([0, 0, -1])
-    force_p0 = vec_p0.interpolate(sd, force)
-    force_rhs = Mu @ force_p0
+    force_u = Mu @ vec_p0.interpolate(sd, lambda x: f_u(x).ravel())
+    force_r = Mr @ vec_p0.interpolate(sd, lambda x: f_r(x).ravel())
 
-    split_idx = np.cumsum([vec_rt0.ndof(sd), vec_rt0.ndof(sd), vec_p0.ndof(sd)])
-
-    rhs[split_idx[1] : split_idx[2]] += force_rhs
-    # rhs[: vec_rt0.ndof(sd)] = bc
+    rhs[split_idx[1] : split_idx[2]] += force_u
+    rhs[split_idx[2] :] += force_r
 
     ls = pg.LinearSystem(spp, rhs)
-    ls.flag_ess_bc(b_faces, np.zeros(spp.shape[0]))
     x = ls.solve()
 
     sigma, w, u, r = np.split(x, split_idx)
 
-    cell_sigma = vec_rt0.eval_at_cell_centers(sd) @ sigma
-    cell_w = vec_rt0.eval_at_cell_centers(sd) @ w
-    cell_u = vec_p0.eval_at_cell_centers(sd) @ u
-    cell_r = vec_p0.eval_at_cell_centers(sd) @ r
+    # compute the error
+    err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
+    err_w = vec_rt0.error_l2(sd, w, w_ex, data=data)
+    err_u = vec_p0.error_l2(sd, u, lambda x: u_ex(x).ravel())
+    err_r = vec_p0.error_l2(sd, r, lambda x: r_ex(x).ravel())
 
-    # we need to reshape for exporting
-    cell_u = cell_u.reshape((3, -1))
-    cell_r = cell_r.reshape((3, -1))
+    if False:
+        cell_sigma = vec_rt0.eval_at_cell_centers(sd) @ sigma
+        cell_w = vec_rt0.eval_at_cell_centers(sd) @ w
+        cell_u = vec_p0.eval_at_cell_centers(sd) @ u
+        cell_r = vec_p0.eval_at_cell_centers(sd) @ r
 
-    folder = os.path.dirname(os.path.abspath(__file__))
-    save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
-    save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
+        # we need to reshape for exporting
+        cell_u = cell_u.reshape((3, -1))
+        cell_r = cell_r.reshape((3, -1))
+
+        folder = os.path.dirname(os.path.abspath(__file__))
+        save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
+        save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
+
+    h = np.amax(sd.cell_diameters())
+    return err_sigma, err_w, err_u, err_r, h, *dofs, spp.nnz
 
 
 if __name__ == "__main__":
-    main()
+    mesh_size = [0.4, 0.3, 0.2, 0.1]  # [0.5, 0.4, 0.3, 0.2, 0.1]
+    errs = np.vstack([main(h) for h in mesh_size])
+    print(errs)
+
+    order_sigma = order(errs[:, 0], errs[:, 4])
+    order_w = order(errs[:, 1], errs[:, 4])
+    order_u = order(errs[:, 2], errs[:, 4])
+    order_r = order(errs[:, 3], errs[:, 4])
+
+    print(order_sigma, order_w, order_u, order_r)

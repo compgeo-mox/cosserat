@@ -7,7 +7,7 @@ import pygeon as pg
 
 sys.path.append("./src")
 
-from functions import err, order
+from functions import order
 from analytical_solutions import exact_sol_2d
 
 

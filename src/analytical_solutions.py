@@ -33,19 +33,22 @@ def exact_sol_3d(mu_s, lambda_s, mu_w, lambda_w):
     x, y, z = R.varlist
 
     # define the displacement
-    u_x = sp.sin(2 * sp.pi * x) * sp.sin(2 * sp.pi * y) * sp.sin(2 * sp.pi * z)
+    u_x = 1  # + 3 * y - 2 * z
+    # x * (1 - x) * y * (1 - y) * z * (1 - z)
+    # sp.sin(2 * sp.pi * x) * sp.sin(2 * sp.pi * y) * sp.sin(2 * sp.pi * z)
     u_y = u_x
-    u_z = u_x
+    u_z = u_y
     u = sp.Matrix([u_x, u_y, u_z])
 
     # define the rotation
-    r_x = sp.sin(2 * sp.pi * x) * sp.sin(2 * sp.pi * y) * sp.sin(2 * sp.pi * z)
-    r_y = r_x
-    r_z = r_x
+    r_x = x  # u_x
+    r_y = 0  # r_x
+    r_z = 0  # r_x
     r = sp.Matrix([r_x, r_y, r_z])
 
     # compute the stress and micro stress tensor and the source terms
     sigma, w, f_u, f_r = compute_all(3, u, r, mu_s, lambda_s, mu_w, lambda_w, R)
+    print(sigma)
 
     # lambdify the exact solution
     return make_as_lambda(sigma, w, u, r, f_u, f_r, R)

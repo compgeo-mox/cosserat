@@ -43,30 +43,36 @@ def main(mesh_size):
 
     # fmt: off
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[div_s.T,  asym.T], [None, div_w.T]], format="csc")
-    Q = -sps.linalg.spsolve(A, B)
+    B = sps.bmat([[-div_s,  None], [asym, -div_w]], format="csr")
+    Q = sps.linalg.spsolve(A, B.T)
 
-    spp = -B.T @ Q
+    spp = B @ Q
     # fmt: on
 
+    bd_faces = sd.tags["domain_boundary_faces"]
+    u_bc = vec_bdm1.assemble_nat_bc(sd, u_ex, bd_faces)
+    r_bc = bdm1.assemble_nat_bc(sd, r_ex, bd_faces)
+    x_bc = np.concatenate([u_bc, r_bc])
+
     rhs = np.zeros(spp.shape[0])
-    force_u = Mu @ vec_p0.interpolate(sd, lambda x: f_u(x)[: sd.dim].ravel())
-    force_r = Mr @ p0.interpolate(sd, lambda x: f_r(x)[sd.dim]).ravel()
+    force_u = Mu @ vec_p0.interpolate(sd, f_u)
+    force_r = Mr @ p0.interpolate(sd, f_r)
 
     rhs[: split_idx[0]] += force_u
     rhs[split_idx[0] :] += force_r
 
     ls = pg.LinearSystem(spp, rhs)
     x = ls.solve()
-
     u, r = np.split(x, split_idx)
-    sigma, w = np.split(Q @ x, [vec_bdm1.ndof(sd)])
+
+    y = Q @ x + sps.linalg.spsolve(A, x_bc)
+    sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
 
     # compute the error
     err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
-    err_w = bdm1.error_l2(sd, w, lambda x: w_ex(x)[sd.dim].ravel())
-    err_u = vec_p0.error_l2(sd, u, lambda x: u_ex(x)[: sd.dim].ravel())
-    err_r = p0.error_l2(sd, r, lambda x: r_ex(x)[sd.dim][0])
+    err_w = bdm1.error_l2(sd, w, w_ex)
+    err_u = vec_p0.error_l2(sd, u, u_ex)
+    err_r = p0.error_l2(sd, r, r_ex)
 
     if False:
         cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
@@ -90,7 +96,9 @@ def main(mesh_size):
 
 
 if __name__ == "__main__":
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))  # 5
+    np.set_printoptions(precision=2, linewidth=9999)
+
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

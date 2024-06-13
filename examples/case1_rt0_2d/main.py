@@ -42,16 +42,22 @@ def main(mesh_size):
     div_w = Mr @ rt0.assemble_diff_matrix(sd)
 
     # fmt: off
-    spp = sps.bmat([[    Ms,   None, div_s.T,  asym.T],
-                    [  None,     Mw,    None, div_w.T],
-                    [-div_s,   None,    None,    None],
-                    [ -asym, -div_w,    None,    None]], format = "csc")
+    A = sps.block_diag([Ms, Mw])
+    B = sps.bmat([[-div_s,  None], [asym, -div_w]])
+
+    spp = sps.bmat([[A, -B.T], [B, None]], format= "csc")
     # fmt: on
 
     rhs = np.zeros(spp.shape[0])
-    force_u = Mu @ vec_p0.interpolate(sd, lambda x: f_u(x)[: sd.dim].ravel())
-    force_r = Mr @ p0.interpolate(sd, lambda x: f_r(x)[sd.dim]).ravel()
+    force_u = Mu @ vec_p0.interpolate(sd, f_u)
+    force_r = Mr @ p0.interpolate(sd, f_r)
 
+    bd_faces = sd.tags["domain_boundary_faces"]
+    u_bc = vec_rt0.assemble_nat_bc(sd, u_ex, bd_faces)
+    r_bc = rt0.assemble_nat_bc(sd, r_ex, bd_faces)
+
+    rhs[: split_idx[0]] += u_bc
+    rhs[split_idx[0] : split_idx[1]] += r_bc
     rhs[split_idx[1] : split_idx[2]] += force_u
     rhs[split_idx[2] :] += force_r
 
@@ -62,9 +68,9 @@ def main(mesh_size):
 
     # compute the error
     err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
-    err_w = rt0.error_l2(sd, w, lambda x: w_ex(x)[sd.dim].ravel())
-    err_u = vec_p0.error_l2(sd, u, lambda x: u_ex(x)[: sd.dim].ravel())
-    err_r = p0.error_l2(sd, r, lambda x: r_ex(x)[sd.dim][0])
+    err_w = rt0.error_l2(sd, w, w_ex)
+    err_u = vec_p0.error_l2(sd, u, u_ex)
+    err_r = p0.error_l2(sd, r, r_ex)
 
     if False:
         # compute the projections
@@ -88,7 +94,9 @@ def main(mesh_size):
 
 
 if __name__ == "__main__":
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))  # 5
+    np.set_printoptions(precision=2, linewidth=9999)
+
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

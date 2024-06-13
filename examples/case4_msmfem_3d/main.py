@@ -40,31 +40,27 @@ def main(mesh_size):
 
     # fmt: off
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[div_s.T,  asym.T], [None, div_w.T]], format="csc")
-    Q = -sps.linalg.spsolve(A, B)
+    B = sps.bmat([[-div_s,  None], [asym, -div_w]], format="csr")
+    Q = sps.linalg.spsolve(A, B.T)
 
-    spp = -B.T @ Q
+    spp = B @ Q
     # fmt: on
 
     bd_faces = sd.tags["domain_boundary_faces"]
-    u_bc = vec_bdm1.assemble_nat_bc(sd, lambda x: u_ex(x).ravel(), bd_faces)
-    r_bc = vec_bdm1.assemble_nat_bc(sd, lambda x: r_ex(x).ravel(), bd_faces)
+    u_bc = vec_bdm1.assemble_nat_bc(sd, u_ex, bd_faces)
+    r_bc = vec_bdm1.assemble_nat_bc(sd, r_ex, bd_faces)
     x_bc = np.concatenate([u_bc, r_bc])
 
-    # rhs = np.zeros(spp.shape[0])
-    # force_u = Mu @ vec_p0.interpolate(sd, lambda x: f_u(x).ravel())
-    # force_r = Mr @ vec_p0.interpolate(sd, lambda x: f_r(x).ravel())
+    rhs = np.zeros(spp.shape[0])
+    force_u = Mu @ vec_p0.interpolate(sd, f_u)
+    force_r = Mr @ vec_p0.interpolate(sd, f_r)
 
-    # rhs[: split_idx[0]] += force_u
-    # rhs[split_idx[0] :] += force_r
+    rhs[: split_idx[0]] += force_u
+    rhs[split_idx[0] :] += force_r
 
-    # ls = pg.LinearSystem(spp, rhs)
-    # x = ls.solve()
-
-    # u, r = np.split(x, split_idx)
-    u = vec_p0.interpolate(sd, u_ex).ravel(order="F")
-    r = vec_p0.interpolate(sd, r_ex).ravel(order="F")
-    x = np.concatenate([u, r])
+    ls = pg.LinearSystem(spp, rhs)
+    x = ls.solve()
+    u, r = np.split(x, split_idx)
 
     y = Q @ x + sps.linalg.spsolve(A, x_bc)
     sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
@@ -72,8 +68,8 @@ def main(mesh_size):
     # compute the error
     err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
     err_w = vec_bdm1.error_l2(sd, w, w_ex, data=data)
-    err_u = vec_p0.error_l2(sd, u, lambda x: u_ex(x).ravel())
-    err_r = vec_p0.error_l2(sd, r, lambda x: r_ex(x).ravel())
+    err_u = vec_p0.error_l2(sd, u, u_ex)
+    err_r = vec_p0.error_l2(sd, r, r_ex)
 
     if True:
         cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
@@ -95,7 +91,9 @@ def main(mesh_size):
 
 
 if __name__ == "__main__":
-    mesh_size = [0.5, 0.4]  # , 0.3, 0.2, 0.1]  # , 0.05]
+    np.set_printoptions(precision=2, linewidth=9999)
+
+    mesh_size = [0.5, 0.4, 0.3, 0.2, 0.1]  # , 0.05]
     errs = np.vstack([main(h) for h in mesh_size])
 
     order_sigma = order(errs[:, 0], errs[:, -1])

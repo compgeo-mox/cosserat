@@ -43,7 +43,7 @@ def compute_all(dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R):
     return sigma, w, f_u, f_r
 
 
-def make_as_lambda(sigma, w, u, r, f_u, f_r, R):
+def make_as_lambda(dim, sigma, w, u, r, f_u, f_r, R):
     x, y, z = R.varlist
 
     # lambdify the exact solution
@@ -51,18 +51,27 @@ def make_as_lambda(sigma, w, u, r, f_u, f_r, R):
     sigma_ex = lambda pt: sigma_lamb(*pt)
 
     w_lamb = sp.lambdify([x, y, z], w)
-    w_ex = lambda pt: w_lamb(*pt)
+    if dim == 2:
+        w_ex = lambda pt: w_lamb(*pt)[dim]
+    else:
+        w_ex = lambda pt: w_lamb(*pt)
 
     u_lamb = sp.lambdify([x, y, z], u)
-    u_ex = lambda pt: u_lamb(*pt)
+    u_ex = lambda pt: u_lamb(*pt).ravel()[:dim]
 
     r_lamb = sp.lambdify([x, y, z], r)
-    r_ex = lambda pt: r_lamb(*pt)
+    if dim == 2:
+        r_ex = lambda pt: r_lamb(*pt)[dim, 0]
+    else:
+        r_ex = lambda pt: r_lamb(*pt).ravel()
 
     f_u_lamb = sp.lambdify([x, y, z], f_u)
-    f_u_ex = lambda pt: f_u_lamb(*pt)
+    f_u_ex = lambda pt: f_u_lamb(*pt).ravel()[:dim]
 
     f_r_lamb = sp.lambdify([x, y, z], f_r)
-    f_r_ex = lambda pt: f_r_lamb(*pt)
+    if dim == 2:
+        f_r_ex = lambda pt: f_r_lamb(*pt)[dim, 0]
+    else:
+        f_r_ex = lambda pt: f_r_lamb(*pt).ravel()
 
     return sigma_ex, w_ex, u_ex, r_ex, f_u_ex, f_r_ex

@@ -40,22 +40,27 @@ def main(mesh_size):
     div_w = div_s
 
     # fmt: off
-    spp = sps.bmat([[    Ms,   None, div_s.T,  asym.T],
-                    [  None,     Mw,    None, div_w.T],
-                    [-div_s,   None,    None,    None],
-                    [ -asym, -div_w,    None,    None]], format = "csc")
+    A = sps.block_diag([Ms, Mw])
+    B = sps.bmat([[-div_s,  None], [asym, -div_w]])
+
+    spp = sps.bmat([[A, -B.T], [B, None]], format= "csc")
     # fmt: on
 
     rhs = np.zeros(spp.shape[0])
-    force_u = Mu @ vec_p0.interpolate(sd, lambda x: f_u(x).ravel())
-    force_r = Mr @ vec_p0.interpolate(sd, lambda x: f_r(x).ravel())
+    force_u = Mu @ vec_p0.interpolate(sd, f_u)
+    force_r = Mr @ vec_p0.interpolate(sd, f_r)
 
+    bd_faces = sd.tags["domain_boundary_faces"]
+    u_bc = vec_rt0.assemble_nat_bc(sd, u_ex, bd_faces)
+    r_bc = vec_rt0.assemble_nat_bc(sd, r_ex, bd_faces)
+
+    rhs[: split_idx[0]] += u_bc
+    rhs[split_idx[0] : split_idx[1]] += r_bc
     rhs[split_idx[1] : split_idx[2]] += force_u
     rhs[split_idx[2] :] += force_r
 
     ls = pg.LinearSystem(spp, rhs)
     x = ls.solve()
-
     sigma, w, u, r = np.split(x, split_idx)
 
     # compute the error
@@ -83,7 +88,9 @@ def main(mesh_size):
 
 
 if __name__ == "__main__":
-    mesh_size = [0.4, 0.3, 0.2, 0.1]  # [0.5, 0.4, 0.3, 0.2, 0.1]
+    np.set_printoptions(precision=2, linewidth=9999)
+
+    mesh_size = [0.4, 0.3, 0.2, 0.1]
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

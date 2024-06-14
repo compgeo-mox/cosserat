@@ -35,7 +35,8 @@ def exact_sol_3d(mu_s, lambda_s, mu_w, lambda_w):
     x, y, z = R.varlist
 
     # define the displacement
-    u_x = sp.sin(2 * sp.pi * x) * sp.sin(2 * sp.pi * y) * sp.sin(2 * sp.pi * z)
+    u_x = x * (1 - x) * y * (1 - y) * z * (1 - z)
+    # sp.sin(2 * sp.pi * x) * sp.sin(2 * sp.pi * y) * sp.sin(2 * sp.pi * z)
     u_y = u_x
     u_z = u_y
     u = sp.Matrix([u_x, u_y, u_z])

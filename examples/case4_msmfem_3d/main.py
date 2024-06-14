@@ -71,7 +71,7 @@ def main(mesh_size):
     err_u = vec_p0.error_l2(sd, u, u_ex)
     err_r = vec_p0.error_l2(sd, r, r_ex)
 
-    if True:
+    if False:
         cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
         cell_w = vec_bdm1.eval_at_cell_centers(sd) @ w
         cell_u = vec_p0.eval_at_cell_centers(sd) @ u
@@ -87,19 +87,20 @@ def main(mesh_size):
         save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
         save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
 
-    return err_sigma, err_w, err_u, err_r, np.amax(sd.cell_diameters())
+    h = np.amax(sd.cell_diameters())
+    return err_sigma, err_w, err_u, err_r, h, *dofs, spp.nnz
 
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.5, 0.4, 0.3, 0.2, 0.1]  # , 0.05]
+    mesh_size = [0.4, 0.3, 0.2, 0.1]
     errs = np.vstack([main(h) for h in mesh_size])
-
-    order_sigma = order(errs[:, 0], errs[:, -1])
-    order_w = order(errs[:, 1], errs[:, -1])
-    order_u = order(errs[:, 2], errs[:, -1])
-    order_r = order(errs[:, 3], errs[:, -1])
-
     print(errs)
+
+    order_sigma = order(errs[:, 0], errs[:, 4])
+    order_w = order(errs[:, 1], errs[:, 4])
+    order_u = order(errs[:, 2], errs[:, 4])
+    order_r = order(errs[:, 3], errs[:, 4])
+
     print(order_sigma, order_w, order_u, order_r)

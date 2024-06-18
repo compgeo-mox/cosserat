@@ -1,6 +1,7 @@
 import os, sys
 import numpy as np
 import scipy.sparse as sps
+import time
 
 import porepy as pp
 import pygeon as pg
@@ -9,6 +10,17 @@ sys.path.append("./src")
 
 from functions import order
 from analytical_solutions import exact_sol_3d
+
+
+class IterationCallback:
+    def __init__(self):
+        self.iteration_count = 0
+
+    def __call__(self, xk):
+        self.iteration_count += 1
+
+    def get_iteration_count(self):
+        return self.iteration_count
 
 
 def main(mesh_size):
@@ -58,8 +70,27 @@ def main(mesh_size):
     rhs[: split_idx[0]] += force_u
     rhs[split_idx[0] :] += force_r
 
+    # try
+    rt0 = pg.RT0(key)
+    L = rt0.assemble_lumped_matrix(sd)
+    div = rt0.assemble_diff_matrix(sd)
+    P = sps.block_diag([div @ sps.linalg.spsolve(L, div.T)] * 6, format="csc")
+
+    callback = IterationCallback()
+    start = time.time()
+    x_minres, info = sps.linalg.minres(spp, rhs, M=P, callback=callback, rtol=1e-10)
+
+    print("Time minres:", time.time() - start)
+    print("Info:", info)
+    print(f"Total iterations: {callback.get_iteration_count()}")
+
     ls = pg.LinearSystem(spp, rhs)
+    start = time.time()
     x = ls.solve()
+    print("Time direct:", time.time() - start)
+
+    print(np.linalg.norm(x - x_minres) / np.linalg.norm(x))
+
     u, r = np.split(x, split_idx)
 
     y = Q @ x + sps.linalg.spsolve(A, x_bc)

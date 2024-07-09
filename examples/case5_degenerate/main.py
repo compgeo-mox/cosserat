@@ -9,14 +9,14 @@ import pygeon as pg
 sys.path.append("./src")
 
 from functions import order
-from analytical_solutions import cosserat_exact_3d
+from analytical_solutions import elasticity_exact_3d
 
 
 class IterationCallback:
     def __init__(self):
         self.iteration_count = 0
 
-    def __call__(self, xk):
+    def __call__(self, _):
         self.iteration_count += 1
 
     def get_iteration_count(self):
@@ -24,15 +24,13 @@ class IterationCallback:
 
 
 def main(mesh_size):
-    # return the exact solution and related rhs
-    mu_s, lambda_s = 0.5, 1
-    mu_w, lambda_w = mu_s, lambda_s
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = cosserat_exact_3d(
-        mu_s, lambda_s, mu_w, lambda_w
-    )
-
     sd = pg.unit_grid(3, mesh_size, as_mdg=False)
     sd.compute_geometry()
+    eps = 0 * sps.diags(np.hstack([sd.cell_diameters()] * sd.dim), format="csc")
+
+    # return the exact solution and related rhs
+    mu, lambda_ = 0.5, 1
+    sigma_ex, w_ex, u_ex, r_ex, f_s, f_u, _ = elasticity_exact_3d(mu, lambda_)
 
     key = "cosserat"
     vec_bdm1 = pg.VecBDM1(key)
@@ -41,36 +39,36 @@ def main(mesh_size):
     dofs = np.array([vec_p0.ndof(sd), vec_p0.ndof(sd)])
     split_idx = np.cumsum(dofs[:-1])
 
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
+    data = {pp.PARAMETERS: {key: {"mu": mu, "lambda": lambda_}}}
 
     Ms = vec_bdm1.assemble_lumped_matrix(sd, data)
     Mw = Ms.copy()
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = Mu.copy()
 
+    data_mass = {pp.PARAMETERS: {key: {"mu": 0.5, "lambda": 0}}}
+    M = vec_bdm1.assemble_mass_matrix(sd, data_mass)
+
     div_s = Mu @ vec_bdm1.assemble_diff_matrix(sd)
     asym = Mr @ vec_bdm1.assemble_asym_matrix(sd)
     div_w = div_s.copy()
 
-    # fmt: off
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[-div_s,  None], [asym, -div_w]], format="csr")
+    B = sps.bmat([[-div_s, None], [asym, -eps @ div_w]], format="csr")
     Q = sps.linalg.spsolve(A, B.T)
-
     spp = B @ Q
-    # fmt: on
 
     bd_faces = sd.tags["domain_boundary_faces"]
     u_bc = vec_bdm1.assemble_nat_bc(sd, u_ex, bd_faces)
-    r_bc = vec_bdm1.assemble_nat_bc(sd, r_ex, bd_faces)
+    r_bc = vec_bdm1.assemble_nat_bc(
+        sd, r_ex, bd_faces
+    )  # NOTE: ci vuole un eps anche qui
     x_bc = np.concatenate([u_bc, r_bc])
+    x_bc[: vec_bdm1.ndof(sd)] += M @ vec_bdm1.interpolate(sd, f_s)
 
     rhs = np.zeros(spp.shape[0])
-    force_u = Mu @ vec_p0.interpolate(sd, f_u)
-    force_r = Mr @ vec_p0.interpolate(sd, f_r)
-
-    rhs[: split_idx[0]] += force_u
-    rhs[split_idx[0] :] += force_r
+    rhs[: split_idx[0]] += Mu @ vec_p0.interpolate(sd, f_u)
+    rhs -= B @ sps.linalg.spsolve(A, x_bc)
 
     # solve the saddle point problem using minres and a preconditioner
     rt0 = pg.RT0(key)
@@ -90,7 +88,7 @@ def main(mesh_size):
 
     callback = IterationCallback()
     start = time.time()
-    x, info = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-8)
+    x, info = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-12)
 
     it = callback.get_iteration_count()
     print("Time minres:", time.time() - start)
@@ -104,11 +102,11 @@ def main(mesh_size):
 
     # compute the error
     err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
-    err_w = vec_bdm1.error_l2(sd, w, w_ex, data=data)
+    err_w = vec_bdm1.error_l2(sd, w, w_ex, data=data, relative=False)
     err_u = vec_p0.error_l2(sd, u, u_ex)
     err_r = vec_p0.error_l2(sd, r, r_ex)
 
-    if False:
+    if True:
         cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
         cell_w = vec_bdm1.eval_at_cell_centers(sd) @ w
         cell_u = vec_p0.eval_at_cell_centers(sd) @ u
@@ -118,10 +116,10 @@ def main(mesh_size):
         cell_u = cell_u.reshape((3, -1))
         cell_r = cell_r.reshape((3, -1))
         # cell_w = cell_w.reshape((9, -1))
-        # cell_sigma = cell_sigma.reshape((9, -1))
+        cell_sigma = cell_sigma.reshape((9, -1))
 
         folder = os.path.dirname(os.path.abspath(__file__))
-        save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
+        save = pp.Exporter(sd, "sol_degenerate_cosserat", folder_name=folder)
         save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
 
     h = np.amax(sd.cell_diameters())
@@ -131,7 +129,7 @@ def main(mesh_size):
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05, 0.025]
+    mesh_size = [0.4]  # , 0.3]  # , 0.2]  # , 0.1, 0.05, 0.025]
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

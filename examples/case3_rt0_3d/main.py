@@ -8,7 +8,7 @@ import pygeon as pg
 sys.path.append("./src")
 
 from functions import order
-from analytical_solutions import exact_sol_3d
+from analytical_solutions import cosserat_exact_3d
 
 
 def main(mesh_size):
@@ -16,7 +16,9 @@ def main(mesh_size):
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
     mu_w, lambda_w = mu_s, lambda_s
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = exact_sol_3d(mu_s, lambda_s, mu_w, lambda_w)
+    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = cosserat_exact_3d(
+        mu_s, lambda_s, mu_w, lambda_w
+    )
 
     sd = pg.unit_grid(3, mesh_size, as_mdg=False)
     sd.compute_geometry()

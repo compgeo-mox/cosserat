@@ -33,7 +33,7 @@ def main(mesh_size):
     data = {pp.PARAMETERS: {key: {"mu": mu_w, "lambda": lambda_s}}}
 
     Ms = vec_rt0.assemble_mass_matrix(sd, data)
-    Mw = rt0.assemble_mass_matrix(sd)  # attention to the data here
+    Mw = rt0.assemble_mass_matrix(sd)  # TODO attention to the data here
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = p0.assemble_mass_matrix(sd)
 

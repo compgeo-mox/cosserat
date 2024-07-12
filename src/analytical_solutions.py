@@ -67,27 +67,26 @@ def elasticity_exact_3d(mu, lambda_):
     x, y, z = R.varlist
 
     # define the displacement
-    u_x = 1  # x / 4  # 1  # x * (1 - x) * y * (1 - y) * z * (1 - z)
-    u_y = 1  # y / 4  # u_x
-    u_z = 1  # z / 4  # u_y
+    u_x = x * (1 - x) * y * (1 - y) * z * (1 - z)
+    u_y = u_x
+    u_z = u_y
     u = sp.Matrix([u_x, u_y, u_z])
 
     # define the stress
     sigma = sp.Matrix(
         [
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1],
+            [u_x, 0, 0.5 * u_x],
+            [0, u_x, 0],
+            [0.5 * u_x, 0, u_x],
         ]
     )
 
-    r = 0 * u
+    r = u
 
     f_s, f_u = elasticity_compute_all(dim, sigma, u, r, mu, lambda_, R)
 
     w = sp.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
     f_r = sp.Matrix([0, 0, 0])
-    print(sigma, w, u, r)
 
     # lambdify the exact solution
     return cosserate_as_lambda(dim, sigma, w, u, r, f_s, f_u, f_r, R)

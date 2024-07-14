@@ -16,7 +16,7 @@ def main(mesh_size):
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
     mu_w = mu_s
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = cosserat_exact_2d(mu_s, lambda_s, mu_w)
+    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_2d(mu_s, lambda_s, mu_w)
 
     sd = pg.unit_grid(2, mesh_size, as_mdg=False)
     sd.compute_geometry()
@@ -41,12 +41,9 @@ def main(mesh_size):
     asym = Mr @ vec_rt0.assemble_asym_matrix(sd)
     div_w = Mr @ rt0.assemble_diff_matrix(sd)
 
-    # fmt: off
     A = sps.block_diag([Ms, Mw])
-    B = sps.bmat([[-div_s,  None], [asym, -div_w]])
-
-    spp = sps.bmat([[A, -B.T], [B, None]], format= "csc")
-    # fmt: on
+    B = sps.bmat([[-div_s, None], [asym, -div_w]])
+    spp = sps.bmat([[A, -B.T], [B, None]], format="csc")
 
     rhs = np.zeros(spp.shape[0])
     force_u = Mu @ vec_p0.interpolate(sd, f_u)

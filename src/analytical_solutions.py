@@ -31,8 +31,9 @@ def cosserat_exact_2d(mu_s, lambda_s, mu_w, lambda_w=0):
         dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R
     )
 
+    f_s = 0 * sigma
     # lambdify the exact solution
-    return cosserate_as_lambda(dim, sigma, w, u, r, f_u, f_r, R)
+    return cosserate_as_lambda(dim, sigma, w, u, r, f_s, f_u, f_r, R)
 
 
 def cosserat_exact_3d(mu_s, lambda_s, mu_w, lambda_w):
@@ -57,8 +58,40 @@ def cosserat_exact_3d(mu_s, lambda_s, mu_w, lambda_w):
         dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R
     )
 
+    f_s = 0 * sigma
     # lambdify the exact solution
-    return cosserate_as_lambda(dim, sigma, w, u, r, f_u, f_r, R)
+    return cosserate_as_lambda(dim, sigma, w, u, r, f_s, f_u, f_r, R)
+
+
+def elasticity_exact_2d(mu, lambda_):
+    dim = 2
+    R = ReferenceFrame("R")
+    x, y, _ = R.varlist
+
+    # define the displacement
+    u_x = sp.sin(2 * sp.pi * x) * sp.sin(2 * sp.pi * y)
+    u_y = u_x
+    u = sp.Matrix([u_x, u_y, 0])
+
+    # define the stress
+    sigma = sp.Matrix(
+        [
+            [u_x, 0.5 * u_x, 0],
+            [0.5 * u_x, u_x, 0],
+            [0, 0, 0],
+        ]
+    )
+
+    r_z = u_x
+    r = sp.Matrix([0, 0, r_z])
+
+    f_s, f_u = elasticity_compute_all(dim, sigma, u, r, mu, lambda_, R)
+
+    w = sp.Matrix([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+    f_r = sp.Matrix([0, 0, 0])
+
+    # lambdify the exact solution
+    return cosserate_as_lambda(dim, sigma, w, u, r, f_s, f_u, f_r, R)
 
 
 def elasticity_exact_3d(mu, lambda_):

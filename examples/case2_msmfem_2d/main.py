@@ -16,7 +16,7 @@ def main(mesh_size):
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
     mu_w = mu_s
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = cosserat_exact_2d(mu_s, lambda_s, mu_w)
+    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_2d(mu_s, lambda_s, mu_w)
 
     sd = pg.unit_grid(2, mesh_size, as_mdg=False)
     sd.compute_geometry()
@@ -33,7 +33,7 @@ def main(mesh_size):
     data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
 
     Ms = vec_bdm1.assemble_lumped_matrix(sd, data)
-    Mw = bdm1.assemble_lumped_matrix(sd)  # attention to the data here
+    Mw = bdm1.assemble_lumped_matrix(sd)  # NOTE attention to the data here
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = p0.assemble_mass_matrix(sd)
 
@@ -41,13 +41,10 @@ def main(mesh_size):
     asym = Mr @ vec_bdm1.assemble_asym_matrix(sd)
     div_w = Mr @ bdm1.assemble_diff_matrix(sd)
 
-    # fmt: off
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[-div_s,  None], [asym, -div_w]], format="csr")
+    B = sps.bmat([[-div_s, None], [asym, -div_w]], format="csr")
     Q = sps.linalg.spsolve(A, B.T)
-
     spp = B @ Q
-    # fmt: on
 
     bd_faces = sd.tags["domain_boundary_faces"]
     u_bc = vec_bdm1.assemble_nat_bc(sd, u_ex, bd_faces)
@@ -55,11 +52,9 @@ def main(mesh_size):
     x_bc = np.concatenate([u_bc, r_bc])
 
     rhs = np.zeros(spp.shape[0])
-    force_u = Mu @ vec_p0.interpolate(sd, f_u)
-    force_r = Mr @ p0.interpolate(sd, f_r)
-
-    rhs[: split_idx[0]] += force_u
-    rhs[split_idx[0] :] += force_r
+    rhs[: split_idx[0]] += Mu @ vec_p0.interpolate(sd, f_u)
+    rhs[split_idx[0] :] += Mr @ p0.interpolate(sd, f_r)
+    rhs -= B @ sps.linalg.spsolve(A, x_bc)
 
     ls = pg.LinearSystem(spp, rhs)
     x = ls.solve()
@@ -70,7 +65,7 @@ def main(mesh_size):
 
     # compute the error
     err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
-    err_w = bdm1.error_l2(sd, w, w_ex)
+    err_w = bdm1.error_l2(sd, w, w_ex, data=data)
     err_u = vec_p0.error_l2(sd, u, u_ex)
     err_r = p0.error_l2(sd, r, r_ex)
 

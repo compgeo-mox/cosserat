@@ -16,7 +16,7 @@ def main(mesh_size):
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
     mu_w, lambda_w = mu_s, lambda_s
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = cosserat_exact_3d(
+    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_3d(
         mu_s, lambda_s, mu_w, lambda_w
     )
 
@@ -25,6 +25,7 @@ def main(mesh_size):
 
     key = "cosserat"
     vec_rt0 = pg.VecRT0(key)
+    vec_bdm1 = pg.VecBDM1(key)
     vec_p0 = pg.VecPwConstants(key)
 
     dofs = np.array([vec_rt0.ndof(sd)] * 2 + [vec_p0.ndof(sd)] * 2)
@@ -41,12 +42,9 @@ def main(mesh_size):
     asym = Mr @ vec_rt0.assemble_asym_matrix(sd)
     div_w = div_s
 
-    # fmt: off
     A = sps.block_diag([Ms, Mw])
-    B = sps.bmat([[-div_s,  None], [asym, -div_w]])
-
-    spp = sps.bmat([[A, -B.T], [B, None]], format= "csc")
-    # fmt: on
+    B = sps.bmat([[-div_s, None], [asym, -div_w]])
+    spp = sps.bmat([[A, -B.T], [B, None]], format="csc")
 
     rhs = np.zeros(spp.shape[0])
     force_u = Mu @ vec_p0.interpolate(sd, f_u)
@@ -66,8 +64,12 @@ def main(mesh_size):
     sigma, w, u, r = np.split(x, split_idx)
 
     # compute the error
-    err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
-    err_w = vec_rt0.error_l2(sd, w, w_ex, data=data)
+    sigma_bdm1 = vec_bdm1.proj_from_RT0(sd) @ sigma
+    err_sigma = vec_bdm1.error_l2(sd, sigma_bdm1, sigma_ex, data=data)
+    # err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
+    w_bdm1 = vec_bdm1.proj_from_RT0(sd) @ w
+    err_w = vec_bdm1.error_l2(sd, w_bdm1, w_ex, data=data)
+    # err_w = vec_rt0.error_l2(sd, w, w_ex, data=data)
     err_u = vec_p0.error_l2(sd, u, lambda x: u_ex(x).ravel())
     err_r = vec_p0.error_l2(sd, r, lambda x: r_ex(x).ravel())
 

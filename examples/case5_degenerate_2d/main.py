@@ -15,6 +15,8 @@ def main(mesh_size):
     sd = pg.unit_grid(2, mesh_size, as_mdg=False)
     sd.compute_geometry()
     eps = np.average(sd.cell_diameters())
+    # epsilon for the post-processing
+    eps_pp = eps
 
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
@@ -62,7 +64,8 @@ def main(mesh_size):
     x = ls.solve()
     u, r = np.split(x, split_idx)
 
-    y = Q @ x + sps.linalg.spsolve(A, x_bc)
+    B_pp = sps.bmat([[-div_s, None], [asym, -eps_pp * div_w]], format="csr")
+    y = sps.linalg.spsolve(A, B_pp.T @ x + x_bc)
     sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
 
     # compute the error
@@ -95,7 +98,7 @@ def main(mesh_size):
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

@@ -23,6 +23,7 @@ def main(mesh_size):
 
     key = "cosserat"
     vec_rt0 = pg.VecRT0(key)
+    vec_bdm1 = pg.VecBDM1(key)
     rt0 = pg.RT0(key)
     vec_p0 = pg.VecPwConstants(key)
     p0 = pg.PwConstants(key)
@@ -64,7 +65,9 @@ def main(mesh_size):
     sigma, w, u, r = np.split(x, split_idx)
 
     # compute the error
-    err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
+    sigma_bdm1 = vec_bdm1.proj_from_RT0(sd) @ sigma
+    err_sigma = vec_bdm1.error_l2(sd, sigma_bdm1, sigma_ex, data=data)
+    # err_sigma = vec_rt0.error_l2(sd, sigma, sigma_ex, data=data)
     err_w = rt0.error_l2(sd, w, w_ex)
     err_u = vec_p0.error_l2(sd, u, u_ex)
     err_r = p0.error_l2(sd, r, r_ex)

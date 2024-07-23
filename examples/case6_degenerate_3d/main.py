@@ -127,7 +127,7 @@ def main(mesh_size):
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.4, 0.3, 0.2, 0.1]  # , 0.05, 0.025]
+    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05]
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

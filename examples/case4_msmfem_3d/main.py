@@ -27,7 +27,7 @@ def main(mesh_size):
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
     mu_w, lambda_w = mu_s, lambda_s
-    sigma_ex, w_ex, u_ex, r_ex, f_u, f_r = cosserat_exact_3d(
+    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_3d(
         mu_s, lambda_s, mu_w, lambda_w
     )
 

@@ -95,7 +95,7 @@ if __name__ == "__main__":
     folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.4, 0.3]  # , 0.2, 0.1, 0.05]
+    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05]
     errs = np.vstack([main(h, folder) for h in mesh_size])
     print(errs)
 

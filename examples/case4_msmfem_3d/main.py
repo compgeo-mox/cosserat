@@ -52,13 +52,18 @@ def main(mesh_size):
     asym = Mr @ vec_bdm1.assemble_asym_matrix(sd)
     div_w = div_s.copy()
 
-    # fmt: off
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[-div_s,  None], [asym, -div_w]], format="csr")
-    Q = sps.linalg.spsolve(A, B.T)
+    B = sps.bmat([[-div_s, None], [asym, -div_w]], format="csr")
 
+    # use spsolve only once and put div_s and asym in one single matrix
+    diff = sps.hstack([-div_s.T, asym.T], format="csc")
+
+    inv_diff = sps.linalg.spsolve(Ms, diff)
+    inv_div_T = inv_diff[:, : div_s.shape[0]]
+    inv_asym_T = inv_diff[:, div_s.shape[0] :]
+
+    Q = sps.bmat([[inv_div_T, inv_asym_T], [None, inv_div_T]], format="csc")
     spp = B @ Q
-    # fmt: on
 
     bd_faces = sd.tags["domain_boundary_faces"]
     u_bc = vec_bdm1.assemble_nat_bc(sd, u_ex, bd_faces)

@@ -23,10 +23,11 @@ class IterationCallback:
         return self.iteration_count
 
 
-def main(mesh_size):
+def main(mesh_size, factor_eps=1, factor_eps_pp=1):
     sd = pg.unit_grid(3, mesh_size, as_mdg=False)
     sd.compute_geometry()
-    eps = np.average(sd.cell_diameters())
+    eps = factor_eps * np.average(sd.cell_diameters())
+    eps_pp = factor_eps_pp * eps
 
     # return the exact solution and related rhs
     mu, lambda_ = 0.5, 1
@@ -54,8 +55,16 @@ def main(mesh_size):
     div_w = div_s.copy()
 
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[-div_s, None], [asym, -eps @ div_w]], format="csr")
-    Q = sps.linalg.spsolve(A, B.T)
+    B = sps.bmat([[-div_s, None], [asym, -eps * div_w]], format="csr")
+
+    # use spsolve only once and put div_s and asym in one single matrix
+    diff = sps.hstack([-div_s.T, asym.T], format="csc")
+
+    inv_diff = sps.linalg.spsolve(Ms, diff)
+    inv_div_T = inv_diff[:, : div_s.shape[0]]
+    inv_asym_T = inv_diff[:, div_s.shape[0] :]
+
+    Q = sps.bmat([[inv_div_T, inv_asym_T], [None, eps * inv_div_T]], format="csc")
     spp = B @ Q
 
     bd_faces = sd.tags["domain_boundary_faces"]
@@ -95,7 +104,8 @@ def main(mesh_size):
 
     u, r = np.split(x, split_idx)
 
-    y = Q @ x + sps.linalg.spsolve(A, x_bc)
+    B_pp = sps.bmat([[-div_s, None], [asym, -eps_pp * div_w]], format="csr")
+    y = sps.linalg.spsolve(A, B_pp.T @ x + x_bc)
     sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
 
     # compute the error
@@ -128,7 +138,34 @@ if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
     mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05]
-    errs = np.vstack([main(h) for h in mesh_size])
+
+    factor_eps = 1
+    factor_eps_pp = 1
+    errs = np.vstack([main(h, factor_eps, factor_eps_pp) for h in mesh_size])
+    print(errs)
+
+    order_sigma = order(errs[:, 0], errs[:, 4])
+    order_w = order(errs[:, 1], errs[:, 4])
+    order_u = order(errs[:, 2], errs[:, 4])
+    order_r = order(errs[:, 3], errs[:, 4])
+
+    print(order_sigma, order_w, order_u, order_r)
+
+    factor_eps = 0
+    factor_eps_pp = 0
+    errs = np.vstack([main(h, factor_eps, factor_eps_pp) for h in mesh_size])
+    print(errs)
+
+    order_sigma = order(errs[:, 0], errs[:, 4])
+    order_w = order(errs[:, 1], errs[:, 4])
+    order_u = order(errs[:, 2], errs[:, 4])
+    order_r = order(errs[:, 3], errs[:, 4])
+
+    print(order_sigma, order_w, order_u, order_r)
+
+    factor_eps = 1
+    factor_eps_pp = 0
+    errs = np.vstack([main(h, factor_eps, factor_eps_pp) for h in mesh_size])
     print(errs)
 
     order_sigma = order(errs[:, 0], errs[:, 4])

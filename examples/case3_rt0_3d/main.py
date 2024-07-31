@@ -11,7 +11,7 @@ from functions import order
 from analytical_solutions import cosserat_exact_3d
 
 
-def main(mesh_size):
+def main(mesh_size, folder):
 
     # return the exact solution and related rhs
     mu_s, lambda_s = 0.5, 1
@@ -20,7 +20,8 @@ def main(mesh_size):
         mu_s, lambda_s, mu_w, lambda_w
     )
 
-    sd = pg.unit_grid(3, mesh_size, as_mdg=False)
+    mesh_file_name = os.path.join(folder, "grid.msh")
+    sd = pg.unit_grid(3, mesh_size, as_mdg=False, file_name=mesh_file_name)
     sd.compute_geometry()
 
     key = "cosserat"
@@ -83,7 +84,6 @@ def main(mesh_size):
         cell_u = cell_u.reshape((3, -1))
         cell_r = cell_r.reshape((3, -1))
 
-        folder = os.path.dirname(os.path.abspath(__file__))
         save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
         save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
 
@@ -92,10 +92,11 @@ def main(mesh_size):
 
 
 if __name__ == "__main__":
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.4, 0.3]#, 0.2, 0.1, 0.05]
-    errs = np.vstack([main(h) for h in mesh_size])
+    mesh_size = [0.4, 0.3]  # , 0.2, 0.1, 0.05]
+    errs = np.vstack([main(h, folder) for h in mesh_size])
     print(errs)
 
     order_sigma = order(errs[:, 0], errs[:, 4])
@@ -105,7 +106,6 @@ if __name__ == "__main__":
 
     print(order_sigma, order_w, order_u, order_r)
 
-    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     np.savetxt(os.path.join(folder, "errors.txt"), errs)
 
     orders = np.vstack([order_sigma, order_w, order_u, order_r])

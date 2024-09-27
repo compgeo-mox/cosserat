@@ -12,7 +12,7 @@ from exact_operators import (
 )
 
 
-def cosserat_exact_2d(mu_s, lambda_s, mu_w, lambda_w=0):
+def cosserat_exact_2d(mu_s, mu_sc, lambda_s, mu_w, mu_wc=0, lambda_w=0):
     dim = 2
     R = ReferenceFrame("R")
     x, y, _ = R.varlist
@@ -28,7 +28,7 @@ def cosserat_exact_2d(mu_s, lambda_s, mu_w, lambda_w=0):
 
     # compute the stress and micro stress tensor and the source terms
     sigma, w, f_u, f_r = cosserat_compute_all(
-        dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R
+        dim, u, r, mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w, R
     )
 
     f_s = 0 * sigma
@@ -36,7 +36,7 @@ def cosserat_exact_2d(mu_s, lambda_s, mu_w, lambda_w=0):
     return cosserate_as_lambda(dim, sigma, w, u, r, f_s, f_u, f_r, R)
 
 
-def cosserat_exact_3d(mu_s, lambda_s, mu_w, lambda_w):
+def cosserat_exact_3d(mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w):
     dim = 3
     R = ReferenceFrame("R")
     x, y, z = R.varlist
@@ -55,7 +55,7 @@ def cosserat_exact_3d(mu_s, lambda_s, mu_w, lambda_w):
 
     # compute the stress and micro stress tensor and the source terms
     sigma, w, f_u, f_r = cosserat_compute_all(
-        dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R
+        dim, u, r, mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w, R
     )
 
     f_s = 0 * sigma

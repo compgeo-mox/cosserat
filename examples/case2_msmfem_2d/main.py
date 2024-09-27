@@ -14,9 +14,11 @@ from analytical_solutions import cosserat_exact_2d
 def main(mesh_size):
 
     # return the exact solution and related rhs
-    mu_s, lambda_s = 0.5, 1
-    mu_w = mu_s
-    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_2d(mu_s, lambda_s, mu_w)
+    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
+    mu_w = 0.5
+    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_2d(
+        mu_s, mu_sc, lambda_s, mu_w
+    )
 
     sd = pg.unit_grid(2, mesh_size, as_mdg=False)
     sd.compute_geometry()
@@ -30,9 +32,9 @@ def main(mesh_size):
     dofs = np.array([vec_p0.ndof(sd), p0.ndof(sd)])
     split_idx = np.cumsum(dofs[:-1])
 
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
 
-    Ms = vec_bdm1.assemble_lumped_matrix(sd, data)
+    Ms = vec_bdm1.assemble_lumped_matrix_cosserat(sd, data)
     Mw = bdm1.assemble_lumped_matrix(sd)  # NOTE attention to the data here
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = p0.assemble_mass_matrix(sd)

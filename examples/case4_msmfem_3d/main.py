@@ -25,10 +25,10 @@ class IterationCallback:
 
 def main(mesh_size):
     # return the exact solution and related rhs
-    mu_s, lambda_s = 0.5, 1
-    mu_w, lambda_w = mu_s, lambda_s
+    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
+    mu_w, mu_wc, lambda_w = 0.5, 0.25, 1
     sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_3d(
-        mu_s, lambda_s, mu_w, lambda_w
+        mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w
     )
 
     sd = pg.unit_grid(3, mesh_size, as_mdg=False)
@@ -41,9 +41,9 @@ def main(mesh_size):
     dofs = np.array([vec_p0.ndof(sd), vec_p0.ndof(sd)])
     split_idx = np.cumsum(dofs[:-1])
 
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
 
-    Ms = vec_bdm1.assemble_lumped_matrix(sd, data)
+    Ms = vec_bdm1.assemble_lumped_matrix_cosserat(sd, data)
     Mw = Ms.copy()
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = Mu.copy()

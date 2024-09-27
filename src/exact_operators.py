@@ -27,7 +27,15 @@ def matrix_divergence(sigma, R):
     )
 
 
-def cosserat_compute_all(dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R):
+def skew(sigma):
+    return 0.5 * (sigma - sigma.T)
+
+
+def sym(sigma):
+    return 0.5 * (sigma + sigma.T)
+
+
+def cosserat_compute_all(dim, u, r, mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w, R):
 
     if dim == 2:
         I = sp.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 0]])
@@ -36,11 +44,14 @@ def cosserat_compute_all(dim, u, r, mu_s, lambda_s, mu_w, lambda_w, R):
 
     # sigma
     tau = vector_gradient(u, R) + asym_T(r)
-    sigma = 2 * mu_s * tau + lambda_s * sp.trace(tau) * I
+    sigma = 2 * mu_s * sym(tau) + 2 * mu_sc * skew(tau) + lambda_s * sp.trace(tau) * I
 
     # w
     tau = vector_gradient(r, R)
-    w = 2 * mu_w * tau + lambda_w * sp.trace(tau) * I
+    if dim == 2:
+        w = 2 * mu_w * tau + lambda_w * sp.trace(tau) * I
+    else:
+        w = 2 * mu_w * sym(tau) + 2 * mu_wc * skew(tau) + lambda_w * sp.trace(tau) * I
 
     # Compute the source term
     f_u = -matrix_divergence(sigma, R)

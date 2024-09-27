@@ -14,10 +14,10 @@ from analytical_solutions import cosserat_exact_3d
 def main(mesh_size, folder):
 
     # return the exact solution and related rhs
-    mu_s, lambda_s = 0.5, 1
-    mu_w, lambda_w = mu_s, lambda_s
+    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
+    mu_w, mu_wc, lambda_w = 0.5, 0.25, 1
     sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_3d(
-        mu_s, lambda_s, mu_w, lambda_w
+        mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w
     )
 
     mesh_file_name = os.path.join(folder, "grid.msh")
@@ -32,9 +32,9 @@ def main(mesh_size, folder):
     dofs = np.array([vec_rt0.ndof(sd)] * 2 + [vec_p0.ndof(sd)] * 2)
     split_idx = np.cumsum(dofs[:-1])
 
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
 
-    Ms = vec_rt0.assemble_mass_matrix(sd, data)
+    Ms = vec_rt0.assemble_mass_matrix_cosserat(sd, data)
     Mw = Ms
     Mu = vec_p0.assemble_mass_matrix(sd)
     Mr = Mu

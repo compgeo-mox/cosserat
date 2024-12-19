@@ -85,7 +85,7 @@ def main(mesh_size):
         cell_u = np.hstack((cell_u, np.zeros(sd.num_cells)))
         cell_u = cell_u.reshape((3, -1))
 
-        cell_w = cell_w.reshape((3, -1), order="F")
+        cell_w = cell_w.reshape((3, -1))
 
         folder = os.path.dirname(os.path.abspath(__file__))
         save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)

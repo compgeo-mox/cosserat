@@ -10,6 +10,8 @@ sys.path.append("./src")
 from functions import order
 from analytical_solutions import cosserat_exact_2d
 
+# TODO: do the run for all the cases
+
 
 def main(mesh_size):
 
@@ -31,6 +33,7 @@ def main(mesh_size):
 
     p1 = pg.PwLinears(key)
     l1 = pg.Lagrange1(key)
+    l2 = pg.Lagrange2(key)
 
     dofs = np.array([vec_p0.ndof(sd), l1.ndof(sd)])
     split_idx = np.cumsum(dofs[:-1])
@@ -40,22 +43,19 @@ def main(mesh_size):
     Ms = vec_bdm1.assemble_lumped_matrix_cosserat(sd, data)
     Mw = bdm1.assemble_lumped_matrix(sd)  # NOTE attention to the data here
     Mu = vec_p0.assemble_mass_matrix(sd)
-    Mr = l1.assemble_mass_matrix(sd)
-    Mr_lumped = l1.assemble_lumped_matrix(sd)
 
-    M_p1 = p1.assemble_mass_matrix(sd)
-    M_p0 = p0.assemble_mass_matrix(sd)
+    M_p1_lumped = p1.assemble_lumped_matrix(sd)
 
     proj_l1 = l1.proj_to_pwLinears(sd)
-    proj_p0 = l1.proj_to_pwConstants(sd)
+    proj_p0 = p0.proj_to_PwLinears(sd)
 
     div_s = Mu @ vec_bdm1.assemble_diff_matrix(sd)
 
     asym_op = vec_bdm1.assemble_asym_matrix(sd, as_pwconstant=False)
-    asym = proj_l1 @ Mr_lumped @ proj_l1.T @ asym_op
+    asym = proj_l1.T @ M_p1_lumped @ asym_op
 
     div_w_op = bdm1.assemble_diff_matrix(sd)
-    div_w = proj_l1 @ Mr_lumped @ proj_p0.T @ div_w_op
+    div_w = proj_l1.T @ M_p1_lumped @ proj_p0 @ div_w_op
 
     A = sps.block_diag([Ms, Mw], format="csc")
     B = sps.block_array([[-div_s, None], [asym, -div_w]], format="csr")
@@ -69,7 +69,7 @@ def main(mesh_size):
 
     rhs = np.zeros(spp.shape[0])
     rhs[: split_idx[0]] += Mu @ vec_p0.interpolate(sd, f_u)
-    rhs[split_idx[0] :] += proj_l1 @ Mr_lumped @ l1.interpolate(sd, f_r)
+    rhs[split_idx[0] :] += proj_l1.T @ M_p1_lumped @ p1.interpolate(sd, f_r)
     rhs -= B @ sps.linalg.spsolve(A, x_bc)
 
     ls = pg.LinearSystem(spp, rhs)
@@ -83,7 +83,8 @@ def main(mesh_size):
     err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
     err_w = bdm1.error_l2(sd, w, w_ex, data=data)
     err_u = vec_p0.error_l2(sd, u, u_ex)
-    err_r = l1.error_l2(sd, r, r_ex)
+    r_l2 = l1.proj_to_Lagrange2(sd) @ r
+    err_r = l2.error_l2(sd, r_l2, r_ex)
 
     if False:
         cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
@@ -109,7 +110,7 @@ def main(mesh_size):
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
     errs = np.vstack([main(h) for h in mesh_size])
     print(errs)
 

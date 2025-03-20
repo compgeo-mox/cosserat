@@ -95,7 +95,7 @@ def main(mesh_size):
 
     callback = IterationCallback()
     start = time.time()
-    x, info = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-8)
+    x, info = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-5)
 
     it = callback.get_iteration_count()
     print("Time minres:", time.time() - start)

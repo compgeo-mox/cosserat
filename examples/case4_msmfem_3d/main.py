@@ -8,7 +8,7 @@ import pygeon as pg
 
 sys.path.append("./src")
 
-from functions import order
+from functions import make_summary
 from analytical_solutions import cosserat_exact_3d
 
 
@@ -23,7 +23,7 @@ class IterationCallback:
         return self.iteration_count
 
 
-def main(mesh_size):
+def main(mesh_size, folder):
     # return the exact solution and related rhs
     mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
     mu_w, mu_wc, lambda_w = 0.5, 0.25, 1
@@ -31,7 +31,8 @@ def main(mesh_size):
         mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w
     )
 
-    sd = pg.unit_grid(3, mesh_size, as_mdg=False)
+    mesh_file_name = os.path.join(folder, "grid.msh")
+    sd = pg.unit_grid(3, mesh_size, as_mdg=False, file_name=mesh_file_name)
     sd.compute_geometry()
 
     key = "cosserat"
@@ -53,7 +54,7 @@ def main(mesh_size):
     div_w = div_s.copy()
 
     A = sps.block_diag([Ms, Mw], format="csc")
-    B = sps.bmat([[-div_s, None], [asym, -div_w]], format="csr")
+    B = sps.block_array([[-div_s, None], [asym, -div_w]], format="csr")
 
     # use spsolve only once and put div_s and asym in one single matrix
     diff = sps.hstack([-div_s.T, asym.T], format="csc")
@@ -62,7 +63,7 @@ def main(mesh_size):
     inv_div_T = inv_diff[:, : div_s.shape[0]]
     inv_asym_T = inv_diff[:, div_s.shape[0] :]
 
-    Q = sps.bmat([[inv_div_T, inv_asym_T], [None, inv_div_T]], format="csc")
+    Q = sps.block_array([[inv_div_T, inv_asym_T], [None, inv_div_T]], format="csc")
     spp = B @ Q
 
     bd_faces = sd.tags["domain_boundary_faces"]
@@ -83,7 +84,7 @@ def main(mesh_size):
     div = rt0.assemble_diff_matrix(sd)
 
     # factorize the single and then use it in the pot
-    inv_P = div @ sps.linalg.spsolve(L, div.T)
+    inv_P = div @ sps.linalg.spsolve(L, div.T.tocsc())
     P = sps.linalg.splu(inv_P.tocsc())
 
     num = 6
@@ -109,40 +110,23 @@ def main(mesh_size):
 
     # compute the error
     err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
+    print(err_sigma)
     err_w = vec_bdm1.error_l2(sd, w, w_ex, data=data)
     err_u = vec_p0.error_l2(sd, u, u_ex)
     err_r = vec_p0.error_l2(sd, r, r_ex)
 
-    if False:
-        cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
-        cell_w = vec_bdm1.eval_at_cell_centers(sd) @ w
-        cell_u = vec_p0.eval_at_cell_centers(sd) @ u
-        cell_r = vec_p0.eval_at_cell_centers(sd) @ r
-
-        # we need to reshape for exporting
-        cell_u = cell_u.reshape((3, -1))
-        cell_r = cell_r.reshape((3, -1))
-        # cell_w = cell_w.reshape((9, -1))
-        # cell_sigma = cell_sigma.reshape((9, -1))
-
-        folder = os.path.dirname(os.path.abspath(__file__))
-        save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
-        save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r)])
-
     h = np.amax(sd.cell_diameters())
-    return err_sigma, err_w, err_u, err_r, h, *dofs, spp.nnz, it
-
+    return h, err_sigma, err_w, err_u, err_r
 
 if __name__ == "__main__":
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05]
-    errs = np.vstack([main(h) for h in mesh_size])
+    mesh_size = [0.3]#[0.4, 0.3, 0.2, 0.1, 0.05]
+    errs = np.vstack([main(h, folder) for h in mesh_size])
     print(errs)
+    errs_latex = make_summary(errs)
 
-    order_sigma = order(errs[:, 0], errs[:, 4])
-    order_w = order(errs[:, 1], errs[:, 4])
-    order_u = order(errs[:, 2], errs[:, 4])
-    order_r = order(errs[:, 3], errs[:, 4])
-
-    print(order_sigma, order_w, order_u, order_r)
+    # Write to a file
+    with open(folder + "/latex_table.tex", "w") as file:
+        file.write(errs_latex)

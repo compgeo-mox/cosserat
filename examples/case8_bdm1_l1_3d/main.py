@@ -38,7 +38,7 @@ def main(mesh_size, folder):
     data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
 
     Ms = vec_bdm1.assemble_lumped_matrix_cosserat(sd, data)
-    Mw = Ms
+    Mw = Ms.copy()
     Mu = vec_p0.assemble_mass_matrix(sd)
 
     M_p1_lumped = vec_p1.assemble_lumped_matrix(sd)
@@ -77,7 +77,7 @@ def main(mesh_size, folder):
     sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
 
     # compute the error
-    err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
+    err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data) # DA FARE LA VERSIONE COSSERAT DELLA NORMA, MI DA UNA NORMA NEGATIVA ADESSO
     err_w = vec_bdm1.error_l2(sd, w, w_ex, data=data)
     err_u = vec_p0.error_l2(sd, u, u_ex)
     #r_l2 = vec_l1.proj_to_lagrange2(sd) @ r

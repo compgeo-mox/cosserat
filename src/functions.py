@@ -4,22 +4,34 @@ import numpy as np
 def order(error, diam):
     return np.log(error[:-1] / error[1:]) / np.log(diam[:-1] / diam[1:])
 
+
 def array_to_latex(arr):
     latex_str = "\\begin{table}[h]\n\\centering\n"
     latex_str += "\\begin{tabular}{" + "|c" * arr.shape[1] + "|}\n\\hline\n"
-    
-    intestation = ["$h$", "$err_\sigma$", "ord", "$err_w$", "ord", "$err_u$", "ord", "$err_r$", "ord"]
 
-    formatted_rows = [
-        " & ".join("{:.2e}".format(num) for num in row) for row in arr
+    intestation = [
+        "$h$",
+        "$err_\sigma$",
+        "ord",
+        "$err_w$",
+        "ord",
+        "$err_u$",
+        "ord",
+        "$err_r$",
+        "ord",
+        "dofs_u",
+        "dofs_r",
     ]
-    
-    latex_str +=  " & ".join(intestation)
+
+    formatted_rows = [" & ".join("{:.2e}".format(num) for num in row) for row in arr]
+
+    latex_str += " & ".join(intestation)
     latex_str += " \\\\\n\\hline\n"
     latex_str += " \\\\\n\\hline\n".join(formatted_rows)
     latex_str += " \\\\\n\\hline\n\\end{tabular}\n\\end{table}"
-    
+
     return latex_str.replace("-1.00e+00", "-")
+
 
 def make_summary(errs):
     order_sigma = order(errs[:, 1], errs[:, 0])

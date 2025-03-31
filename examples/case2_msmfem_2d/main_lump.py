@@ -7,12 +7,11 @@ import pygeon as pg
 
 sys.path.append("./src")
 
-from functions import order
+from functions import make_summary
 from analytical_solutions import cosserat_exact_2d
 
 
-def main(mesh_size):
-
+def main(mesh_size, folder):
     # return the exact solution and related rhs
     mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
     mu_w = 0.5
@@ -20,7 +19,8 @@ def main(mesh_size):
         mu_s, mu_sc, lambda_s, mu_w
     )
 
-    sd = pg.unit_grid(2, mesh_size, as_mdg=False)
+    mesh_file_name = os.path.join(folder, "grid.msh")
+    sd = pg.unit_grid(2, mesh_size, as_mdg=False, file_name=mesh_file_name)
     sd.compute_geometry()
 
     key = "cosserat"
@@ -71,37 +71,23 @@ def main(mesh_size):
     err_u = vec_p0.error_l2(sd, u, u_ex)
     err_r = p0.error_l2(sd, r, r_ex)
 
-    if False:
-        cell_sigma = vec_bdm1.eval_at_cell_centers(sd) @ sigma
-        cell_w = bdm1.eval_at_cell_centers(sd) @ w
-        cell_u = vec_p0.eval_at_cell_centers(sd) @ u
-        cell_r = p0.eval_at_cell_centers(sd) @ r
-
-        # we need to add the z component for the exporting
-        cell_u = np.hstack((cell_u, np.zeros(sd.num_cells)))
-        cell_u = cell_u.reshape((3, -1))
-
-        # we need to reshape for exporting
-        cell_w = cell_w.reshape((3, -1))
-
-        folder = os.path.dirname(os.path.abspath(__file__))
-        save = pp.Exporter(sd, "sol_cosserat", folder_name=folder)
-        save.write_vtu([("cell_u", cell_u), ("cell_r", cell_r), ("cell_w", cell_w)])
-
     h = np.amax(sd.cell_diameters())
-    return err_sigma, err_w, err_u, err_r, h, *dofs, spp.nnz
+    return err_sigma, err_w, err_u, err_r, h, *dofs
 
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
+    folder = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "results_case2_lump"
+    )
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
     mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
-    errs = np.vstack([main(h) for h in mesh_size])
-    print(errs)
+    errs = np.vstack([main(h, folder) for h in mesh_size])
+    errs_latex = make_summary(errs)
 
-    order_sigma = order(errs[:, 0], errs[:, 4])
-    order_w = order(errs[:, 1], errs[:, 4])
-    order_u = order(errs[:, 2], errs[:, 4])
-    order_r = order(errs[:, 3], errs[:, 4])
-
-    print(order_sigma, order_w, order_u, order_r)
+    # Write to a file
+    with open(folder + "/latex_table.tex", "w") as file:
+        file.write(errs_latex)

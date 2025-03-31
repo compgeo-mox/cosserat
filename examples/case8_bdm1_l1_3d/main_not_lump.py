@@ -12,7 +12,6 @@ from analytical_solutions import cosserat_exact_3d
 
 
 def main(mesh_size, folder):
-
     # return the exact solution and related rhs
     mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
     mu_w, mu_wc, lambda_w = 0.5, 0.25, 1
@@ -30,18 +29,20 @@ def main(mesh_size, folder):
 
     vec_p1 = pg.VecPwLinears(key)
     vec_l1 = pg.VecLagrange1(key)
-    #l2 = pg.Lagrange2(key)
+    vec_l2 = pg.VecLagrange2(key)
 
-    dofs = np.array([vec_p0.ndof(sd), vec_l1.ndof(sd)])
+    dofs = np.array(
+        [vec_bdm1.ndof(sd), vec_bdm1.ndof(sd), vec_p0.ndof(sd), vec_l1.ndof(sd)]
+    )
     split_idx = np.cumsum(dofs[:-1])
 
     data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
 
-    Ms = vec_bdm1.assemble_lumped_matrix_cosserat(sd, data)
+    Ms = vec_bdm1.assemble_mass_matrix_cosserat(sd, data)
     Mw = Ms.copy()
     Mu = vec_p0.assemble_mass_matrix(sd)
 
-    M_p1_lumped = vec_p1.assemble_lumped_matrix(sd)
+    M_p1 = vec_p1.assemble_mass_matrix(sd)
 
     proj_l1 = vec_l1.proj_to_pwLinears(sd)
     proj_p0 = vec_p0.proj_to_pwLinears(sd)
@@ -50,52 +51,53 @@ def main(mesh_size, folder):
     div_s = Mu @ div_op
 
     asym_op = vec_bdm1.assemble_asym_matrix(sd, as_pwconstant=False)
-    asym = proj_l1.T @ M_p1_lumped @ asym_op
+    asym = proj_l1.T @ M_p1 @ asym_op
 
-    div_w = proj_l1.T @ M_p1_lumped @ proj_p0 @ div_op
+    div_w = proj_l1.T @ M_p1 @ proj_p0 @ div_op
 
     A = sps.block_diag([Ms, Mw], format="csc")
     B = sps.block_array([[-div_s, None], [asym, -div_w]], format="csr")
-    Q = sps.linalg.spsolve(A, B.T)
-    spp = B @ Q
+    spp = sps.block_array([[A, -B.T], [B, None]], format="csc")
+
+    rhs = np.zeros(spp.shape[0])
+    force_u = Mu @ vec_p0.interpolate(sd, f_u)
+    force_r = proj_l1.T @ M_p1 @ vec_p1.interpolate(sd, f_r)
 
     bd_faces = sd.tags["domain_boundary_faces"]
     u_bc = vec_bdm1.assemble_nat_bc(sd, u_ex, bd_faces)
     r_bc = vec_bdm1.assemble_nat_bc(sd, r_ex, bd_faces)
-    x_bc = np.concatenate([u_bc, r_bc])
 
-    rhs = np.zeros(spp.shape[0])
-    rhs[: split_idx[0]] += Mu @ vec_p0.interpolate(sd, f_u)
-    rhs[split_idx[0] :] += proj_l1.T @ M_p1_lumped @ vec_p1.interpolate(sd, f_r)
-    rhs -= B @ sps.linalg.spsolve(A, x_bc)
+    rhs[: split_idx[0]] += u_bc
+    rhs[split_idx[0] : split_idx[1]] += r_bc
+    rhs[split_idx[1] : split_idx[2]] += force_u
+    rhs[split_idx[2] :] += force_r
 
     ls = pg.LinearSystem(spp, rhs)
     x = ls.solve()
-    u, r = np.split(x, split_idx)
-
-    y = Q @ x + sps.linalg.spsolve(A, x_bc)
-    sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
+    sigma, w, u, r = np.split(x, split_idx)
 
     # compute the error
-    err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data) # DA FARE LA VERSIONE COSSERAT DELLA NORMA, MI DA UNA NORMA NEGATIVA ADESSO
+    err_sigma = vec_bdm1.error_l2(sd, sigma, sigma_ex, data=data)
     err_w = vec_bdm1.error_l2(sd, w, w_ex, data=data)
     err_u = vec_p0.error_l2(sd, u, u_ex)
-    #r_l2 = vec_l1.proj_to_lagrange2(sd) @ r
-    #err_r = l2.error_l2(sd, r_l2, r_ex)
-    err_r = 1
-    print("manca err r")
+    r_l2 = vec_l1.proj_to_lagrange2(sd) @ r
+    err_r = vec_l2.error_l2(sd, r_l2, r_ex)
 
     h = np.amax(sd.cell_diameters())
-    return h, err_sigma, err_w, err_u, err_r
+    return h, err_sigma, err_w, err_u, err_r, *dofs
 
 
 if __name__ == "__main__":
-    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     np.set_printoptions(precision=2, linewidth=9999)
 
-    mesh_size = [0.4, 0.3]#, 0.2, 0.1, 0.05]
+    folder = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "results_case8_not_lump"
+    )
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    mesh_size = [0.4, 0.3]  # , 0.2, 0.1, 0.05]
     errs = np.vstack([main(h, folder) for h in mesh_size])
-    print(errs)
     errs_latex = make_summary(errs)
 
     # Write to a file

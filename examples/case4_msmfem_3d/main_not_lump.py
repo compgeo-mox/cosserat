@@ -89,9 +89,7 @@ def main(mesh_size, folder):
 if __name__ == "__main__":
     np.set_printoptions(precision=2, linewidth=9999)
 
-    folder = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "results_case4_not_lump"
-    )
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
     if not os.path.exists(folder):
         os.makedirs(folder)
 
@@ -100,5 +98,5 @@ if __name__ == "__main__":
     errs_latex = make_summary(errs)
 
     # Write to a file
-    with open(folder + "/latex_table.tex", "w") as file:
+    with open(folder + "/case4_not_lump.tex", "w") as file:
         file.write(errs_latex)

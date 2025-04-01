@@ -85,7 +85,7 @@ def main(mesh_size, folder):
     err_r = l2.error_l2(sd, r_l2, r_ex)
 
     h = np.amax(sd.cell_diameters())
-    return h, err_sigma, err_w, err_u, err_r
+    return h, err_sigma, err_w, err_u, err_r, *dofs
 
 
 if __name__ == "__main__":

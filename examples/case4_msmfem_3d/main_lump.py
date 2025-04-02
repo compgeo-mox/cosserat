@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 import numpy as np
 import scipy.sparse as sps
 import time
@@ -91,9 +92,10 @@ def main(mesh_size, folder):
 
     num = 6
     shape = np.array(inv_P.shape) * num
-    matvec = lambda x: np.array(
-        [P.solve(x_part) for x_part in np.array_split(x, num)]
-    ).ravel()
+
+    def matvec(x):
+        return np.array([P.solve(x_part) for x_part in np.array_split(x, num)]).ravel()
+
     P_op = sps.linalg.LinearOperator(shape, matvec=matvec)
 
     callback = IterationCallback()
@@ -128,7 +130,7 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    mesh_size = [0.4, 0.3, 0.2]  # , 0.1, 0.05, 0.025]
+    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05, 0.025]
     errs = np.vstack([main(h, folder) for h in mesh_size])
     errs_latex = make_summary(errs)
 

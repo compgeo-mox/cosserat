@@ -59,7 +59,9 @@ def main(mesh_size, folder):
     # use spsolve only once and put div_s and asym in one single matrix
     diff = sps.hstack([-div_s.T, asym.T], format="csc")
 
-    inv_diff = sps.linalg.spsolve(Ms, diff)
+    inv_diff = pg.block_diag_solver(Ms, diff)
+    # inv_diff_old = sps.linalg.spsolve(Ms, diff)
+
     inv_div_T = inv_diff[:, : div_s.shape[0]]
     inv_asym_T = inv_diff[:, div_s.shape[0] :]
 
@@ -126,7 +128,7 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05, 0.025]
+    mesh_size = [0.4, 0.3, 0.2]  # , 0.1, 0.05, 0.025]
     errs = np.vstack([main(h, folder) for h in mesh_size])
     errs_latex = make_summary(errs)
 

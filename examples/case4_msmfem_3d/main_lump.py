@@ -109,7 +109,8 @@ def main(mesh_size, folder):
 
     u, r = np.split(x, split_idx)
 
-    y = Q @ x + sps.linalg.spsolve(A, x_bc)
+    x_bc_csc = sps.csc_array(np.atleast_2d(x_bc).T)
+    y = Q @ x + pg.block_diag_solver(A, x_bc_csc)
     sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
 
     # compute the error
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05, 0.025]
+    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05]  # , 0.025]
     errs = np.vstack([main(h, folder) for h in mesh_size])
     errs_latex = make_summary(errs)
 

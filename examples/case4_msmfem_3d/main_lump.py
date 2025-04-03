@@ -60,7 +60,8 @@ def main(mesh_size, folder):
     # use spsolve only once and put div_s and asym in one single matrix
     diff = sps.hstack([-div_s.T, asym.T], format="csc")
 
-    inv_diff = pg.block_diag_solver(Ms, diff)
+    ls = pg.LinearSystem(Ms, diff)
+    inv_diff = ls.solve(pg.block_diag_solver)
     # inv_diff_old = sps.linalg.spsolve(Ms, diff)
 
     inv_div_T = inv_diff[:, : div_s.shape[0]]
@@ -109,8 +110,8 @@ def main(mesh_size, folder):
 
     u, r = np.split(x, split_idx)
 
-    x_bc_csc = sps.csc_array(np.atleast_2d(x_bc).T)
-    y = Q @ x + pg.block_diag_solver(A, x_bc_csc)
+    ls = pg.LinearSystem(A, x_bc)
+    y = Q @ x + ls.solve(pg.block_diag_solver_dense)
     sigma, w = np.split(y, [vec_bdm1.ndof(sd)])
 
     # compute the error

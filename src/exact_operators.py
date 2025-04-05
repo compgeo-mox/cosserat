@@ -36,7 +36,6 @@ def sym(sigma):
 
 
 def cosserat_compute_all(dim, u, r, mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w, R):
-
     if dim == 2:
         I = sp.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 0]])
     else:
@@ -61,7 +60,6 @@ def cosserat_compute_all(dim, u, r, mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w
 
 
 def elasticity_compute_all(dim, sigma, u, r, mu, lambda_, R):
-
     if dim == 2:
         I = sp.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 0]])
     else:
@@ -112,4 +110,12 @@ def cosserate_as_lambda(dim, sigma, w, u, r, f_s, f_u, f_r, R):
     else:
         f_r_ex = lambda pt: f_r_lamb(*pt).ravel()
 
-    return sigma_ex, w_ex, u_ex, r_ex, f_s_ex, f_u_ex, f_r_ex
+    return {
+        "s_ex": sigma_ex,
+        "w_ex": w_ex,
+        "u_ex": u_ex,
+        "r_ex": r_ex,
+        "f_s": f_s_ex,
+        "f_u": f_u_ex,
+        "f_r": f_r_ex,
+    }

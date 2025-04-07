@@ -1,4 +1,72 @@
 import numpy as np
+import porepy as pp
+from analytical_solutions import cosserat_exact_2d, cosserat_exact_3d
+
+
+def solve_lumped(dim, mesh_size, folder, setup, solver_class):
+    data, data_pb, key = setup()
+
+    solver = solver_class(dim, key)
+    solver.create_grid(mesh_size, folder)
+    solver.create_family()
+
+    return solver.solve_problem_lumped(data, data_pb)
+
+
+def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
+    data, data_pb, key = setup()
+
+    solver = solver_class(dim, key)
+    solver.create_grid(mesh_size, folder)
+    solver.create_family()
+
+    return solver.solve_problem(data, data_pb)
+
+
+def run_2d(func, folder, file_name, setup, solver_class):
+    dim = 2
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
+    errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
+    errs_latex = make_summary(errs)
+
+    # Write to a file
+    with open(folder + "/" + file_name, "w") as file:
+        file.write(errs_latex)
+
+
+def run_3d(func, folder, file_name, setup, solver_class):
+    dim = 3
+    mesh_size = [0.4, 0.3, 0.2, 0.1, 0.05, 0.025]
+    errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
+    errs_latex = make_summary(errs)
+
+    # Write to a file
+    with open(folder + "/" + file_name, "w") as file:
+        file.write(errs_latex)
+
+
+def setup_2d():
+    key = "cosserat"
+
+    # return the exact solution and related rhs
+    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
+    mu_w = 0.5
+    data_pb = cosserat_exact_2d(mu_s, mu_sc, lambda_s, mu_w)
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
+
+    return data, data_pb, key
+
+
+def setup_3d():
+    key = "cosserat"
+
+    # return the exact solution and related rhs
+    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
+    mu_w, mu_wc, lambda_w = 0.5, 0.25, 1
+    data_pb = cosserat_exact_3d(mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w)
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
+
+    return data, data_pb, key
 
 
 def order(error, diam):

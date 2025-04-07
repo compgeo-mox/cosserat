@@ -31,7 +31,10 @@ class Solver:
         self.l1 = pg.Lagrange1(key)
 
         self.p1 = pg.PwLinears(key)
+        self.vec_p1 = pg.VecPwLinears(key)
+
         self.l2 = pg.Lagrange2(key)
+        self.vec_l2 = pg.VecLagrange2(key)
 
         self.dis_s = None
         self.dis_w = None
@@ -126,30 +129,9 @@ class Solver:
         x_bc = ls.solve(pg.block_diag_solver_dense)
         rhs -= B @ x_bc
 
-        # solve the saddle point problem using minres and a preconditioner
-        rt0 = pg.RT0(self.key)
-        L = rt0.assemble_lumped_matrix(self.sd)
-        div = rt0.assemble_diff_matrix(self.sd)
-
-        # factorize the single and then use it in the pot
-        inv_P = div @ sps.linalg.spsolve(L, div.T.tocsc())
-        P = sps.linalg.splu(inv_P.tocsc())
-
-        num = 3 if self.dim == 2 else 6
-        shape = np.array(inv_P.shape) * num
-
-        def matvec(x):
-            return np.array(
-                [P.solve(x_part) for x_part in np.array_split(x, num)]
-            ).ravel()
-
-        P_op = sps.linalg.LinearOperator(shape, matvec=matvec)
-
-        callback = IterationCallback()
-        x, _ = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-5)
+        ls = pg.LinearSystem(spp, rhs)
+        x = ls.solve()
         u, r = np.split(x, split_idx)
-
-        it = callback.get_iteration_count()
 
         y = inv_ABT @ x + x_bc
         s, w = np.split(y, [self.dis_s.ndof(self.sd)])
@@ -158,7 +140,7 @@ class Solver:
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs, it
+        return h, *err, *dofs
 
     def build_mass(self, data, is_lumped):
         if is_lumped:
@@ -196,8 +178,9 @@ class SolverBDM1_P0(Solver):
         return div_s, asym, div_w
 
     def build_bc_for(self, M_u, M_r, data_pb):
-        # Assemble the source terms
         f_u, f_r = data_pb["f_u"], data_pb["f_r"]
+
+        # Assemble the source terms
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
         r_for = M_r @ self.dis_r.interpolate(self.sd, f_r)
 
@@ -230,10 +213,14 @@ class SolverBDM1_L1(Solver):
         self.dis_r = self.l1 if self.dim == 2 else self.vec_l1
 
     def build_diff(self, M_u, M_r):
-        M_p1 = self.p1.assemble_mass_matrix(self.sd)
-        proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
-        proj_p0 = self.p0.proj_to_pwLinears(self.sd)
+        if self.dim == 2:
+            M_p1 = self.p1.assemble_mass_matrix(self.sd)
+            proj_p0 = self.p0.proj_to_pwLinears(self.sd)
+        else:
+            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
+            proj_p0 = self.vec_p0.proj_to_pwLinears(self.sd)
 
+        proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
         asym_op = self.dis_s.assemble_asym_matrix(self.sd, as_pwconstant=False)
@@ -245,19 +232,26 @@ class SolverBDM1_L1(Solver):
         return div_s, asym, div_w
 
     def build_bc_for(self, M_u, M_r, data_pb):
-        M_p1 = self.p1.assemble_mass_matrix(self.sd)
+        f_u, f_r = data_pb["f_u"], data_pb["f_r"]
+
+        if self.dim == 2:
+            M_p1 = self.p1.assemble_mass_matrix(self.sd)
+            r_interp = self.p1.interpolate(self.sd, f_r)
+        else:
+            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
+            r_interp = self.vec_p1.interpolate(self.sd, f_r)
+
         proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
 
         # Assemble the source terms
-        f_u, f_r = data_pb["f_u"], data_pb["f_r"]
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
-        r_for = proj_l1.T @ M_p1 @ self.p1.interpolate(self.sd, f_r)
+        r_for = proj_l1.T @ M_p1 @ r_interp
 
         # Assemble the boundary conditions
         u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
         bd_faces = self.sd.tags["domain_boundary_faces"]
         u_bc = self.dis_s.assemble_nat_bc(self.sd, u_ex, bd_faces)
-        r_bc = self.dis_r.assemble_nat_bc(self.sd, r_ex, bd_faces)
+        r_bc = self.dis_w.assemble_nat_bc(self.sd, r_ex, bd_faces)
 
         return u_bc, r_bc, u_for, r_for
 
@@ -270,6 +264,9 @@ class SolverBDM1_L1(Solver):
         err_w = self.dis_w.error_l2(self.sd, w, w_ex, data=data)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         r_l2 = self.dis_r.proj_to_lagrange2(self.sd) @ r
-        err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
+        if self.dim == 2:
+            err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
+        else:
+            err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
 
         return err_s, err_w, err_u, err_r

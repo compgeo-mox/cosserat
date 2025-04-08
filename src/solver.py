@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import scipy.sparse as sps
+import pyamg
 
 import pygeon as pg
 
@@ -129,8 +130,11 @@ class Solver:
         x_bc = ls.solve(pg.block_diag_solver_dense)
         rhs -= B @ x_bc
 
-        ls = pg.LinearSystem(spp, rhs)
-        x = ls.solve()
+        P_op = self.create_precond(spp)
+
+        callback = IterationCallback()
+        x, _ = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-7)
+        it = callback.get_iteration_count()
         u, r = np.split(x, split_idx)
 
         y = inv_ABT @ x + x_bc
@@ -140,7 +144,7 @@ class Solver:
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs
+        return h, *err, *dofs, it
 
     def build_mass(self, data, is_lumped):
         if is_lumped:
@@ -204,6 +208,29 @@ class SolverBDM1_P0(Solver):
 
         return err_s, err_w, err_u, err_r
 
+    def create_precond(self, spp):
+        # solve the saddle point problem using minres and a preconditioner
+        rt0 = pg.RT0(self.key)
+        L = rt0.assemble_lumped_matrix(self.sd)
+        div = rt0.assemble_diff_matrix(self.sd)
+
+        # factorize the single and then use it in the pot
+        inv_P = sps.csr_matrix(div @ sps.linalg.spsolve(L, div.T.tocsc()))
+        inv_P.indices = inv_P.indices.astype(np.int32)
+        inv_P.indptr = inv_P.indptr.astype(np.int32)
+
+        amg_u = pyamg.smoothed_aggregation_solver(inv_P)
+        P_P0 = amg_u.aspreconditioner()
+
+        num = 3 if self.dim == 2 else 6
+
+        def matvec(x):
+            return np.array(
+                [P_P0.matvec(x_part) for x_part in np.array_split(x, num)]
+            ).ravel()
+
+        return sps.linalg.LinearOperator(spp.shape, matvec=matvec)
+
 
 class SolverBDM1_L1(Solver):
     def create_family(self):
@@ -214,10 +241,10 @@ class SolverBDM1_L1(Solver):
 
     def build_diff(self, M_u, M_r):
         if self.dim == 2:
-            M_p1 = self.p1.assemble_mass_matrix(self.sd)
+            M_p1 = self.p1.assemble_lumped_matrix(self.sd)
             proj_p0 = self.p0.proj_to_pwLinears(self.sd)
         else:
-            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
+            M_p1 = self.vec_p1.assemble_lumped_matrix(self.sd)
             proj_p0 = self.vec_p0.proj_to_pwLinears(self.sd)
 
         proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
@@ -235,10 +262,10 @@ class SolverBDM1_L1(Solver):
         f_u, f_r = data_pb["f_u"], data_pb["f_r"]
 
         if self.dim == 2:
-            M_p1 = self.p1.assemble_mass_matrix(self.sd)
+            M_p1 = self.p1.assemble_lumped_matrix(self.sd)
             r_interp = self.p1.interpolate(self.sd, f_r)
         else:
-            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
+            M_p1 = self.vec_p1.assemble_lumped_matrix(self.sd)
             r_interp = self.vec_p1.interpolate(self.sd, f_r)
 
         proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
@@ -270,3 +297,34 @@ class SolverBDM1_L1(Solver):
             err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
 
         return err_s, err_w, err_u, err_r
+
+    def create_precond(self, spp):
+        # solve the saddle point problem using minres and a preconditioner
+        rt0 = pg.RT0(self.key)
+        L = rt0.assemble_lumped_matrix(self.sd)
+        div = rt0.assemble_diff_matrix(self.sd)
+
+        # factorize the single and then use it in the pot
+        inv_P = div @ sps.linalg.spsolve(L, div.T.tocsc())
+        P_P0 = sps.linalg.splu(inv_P.tocsc())
+
+        l1_stiff = self.l1.assemble_stiff_matrix(self.sd)
+        l1_mass = self.l1.assemble_lumped_matrix(self.sd)
+        P_L1 = sps.linalg.splu(l1_stiff + l1_mass)
+
+        num_r = 1 if self.dim == 2 else 3
+
+        def matvec(x):
+            x_p0 = x[: self.vec_p0.ndof(self.sd)]
+            u = np.array(
+                [P_P0.solve(x_part) for x_part in np.array_split(x_p0, self.sd.dim)]
+            ).ravel()
+
+            x_l1 = x[self.vec_p0.ndof(self.sd) :]
+            r = np.array(
+                [P_L1.solve(x_part) for x_part in np.array_split(x_l1, num_r)]
+            ).ravel()
+
+            return np.concatenate([u, r])
+
+        return sps.linalg.LinearOperator(spp.shape, matvec=matvec)

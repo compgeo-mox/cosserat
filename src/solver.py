@@ -212,10 +212,11 @@ class SolverBDM1_P0(Solver):
         # solve the saddle point problem using minres and a preconditioner
         rt0 = pg.RT0(self.key)
         L = rt0.assemble_lumped_matrix(self.sd)
+        inv_L = sps.diags_array(1 / L.diagonal())
         div = rt0.assemble_diff_matrix(self.sd)
 
         # factorize the single and then use it in the pot
-        inv_P = sps.csr_matrix(div @ sps.linalg.spsolve(L, div.T.tocsc()))
+        inv_P = sps.csr_matrix(div @ inv_L @ div.T)
         inv_P.indices = inv_P.indices.astype(np.int32)
         inv_P.indptr = inv_P.indptr.astype(np.int32)
 
@@ -302,10 +303,11 @@ class SolverBDM1_L1(Solver):
         # solve the saddle point problem using minres and a preconditioner
         rt0 = pg.RT0(self.key)
         L = rt0.assemble_lumped_matrix(self.sd)
+        inv_L = sps.diags_array(1 / L.diagonal())
         div = rt0.assemble_diff_matrix(self.sd)
 
         # factorize the single and then use it in the pot
-        inv_Pu = sps.csr_matrix(div @ sps.linalg.spsolve(L, div.T.tocsc()))
+        inv_Pu = sps.csr_matrix(div @ inv_L @ div.T)
         inv_Pu.indices = inv_Pu.indices.astype(np.int32)
         inv_Pu.indptr = inv_Pu.indptr.astype(np.int32)
 

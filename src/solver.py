@@ -305,24 +305,30 @@ class SolverBDM1_L1(Solver):
         div = rt0.assemble_diff_matrix(self.sd)
 
         # factorize the single and then use it in the pot
-        inv_P = div @ sps.linalg.spsolve(L, div.T.tocsc())
-        P_P0 = sps.linalg.splu(inv_P.tocsc())
+        inv_Pu = sps.csr_matrix(div @ sps.linalg.spsolve(L, div.T.tocsc()))
+        inv_Pu.indices = inv_Pu.indices.astype(np.int32)
+        inv_Pu.indptr = inv_Pu.indptr.astype(np.int32)
+
+        amg_u = pyamg.smoothed_aggregation_solver(inv_Pu)
+        P_P0 = amg_u.aspreconditioner()
 
         l1_stiff = self.l1.assemble_stiff_matrix(self.sd)
-        l1_mass = self.l1.assemble_lumped_matrix(self.sd)
-        P_L1 = sps.linalg.splu(l1_stiff + l1_mass)
+        inv_Pr = sps.csr_matrix(l1_stiff)
+
+        amg_r = pyamg.smoothed_aggregation_solver(inv_Pr)
+        P_L1 = amg_r.aspreconditioner()
 
         num_r = 1 if self.dim == 2 else 3
 
         def matvec(x):
             x_p0 = x[: self.vec_p0.ndof(self.sd)]
             u = np.array(
-                [P_P0.solve(x_part) for x_part in np.array_split(x_p0, self.sd.dim)]
+                [P_P0.matvec(x_part) for x_part in np.array_split(x_p0, self.sd.dim)]
             ).ravel()
 
             x_l1 = x[self.vec_p0.ndof(self.sd) :]
             r = np.array(
-                [P_L1.solve(x_part) for x_part in np.array_split(x_l1, num_r)]
+                [P_L1.matvec(x_part) for x_part in np.array_split(x_l1, num_r)]
             ).ravel()
 
             return np.concatenate([u, r])

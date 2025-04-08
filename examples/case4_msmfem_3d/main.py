@@ -21,4 +21,4 @@ if __name__ == "__main__":
     run_3d(solve_lumped, folder, "case4_lumped.tex", setup_3d, solver_class)
     # Run the non-lumped case
     print("solve not lumped case4")
-    # run_3d(solve_not_lumped, folder, "case4_not_lump.tex", setup_3d, solver_class)
+    run_3d(solve_not_lumped, folder, "case4_not_lump.tex", setup_3d, solver_class)

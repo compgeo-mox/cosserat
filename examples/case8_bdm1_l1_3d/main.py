@@ -17,6 +17,8 @@ if __name__ == "__main__":
 
     solver_class = SolverBDM1_L1
     # Run the lumped case
+    print("solve lumped case8")
     run_3d(solve_lumped, folder, "case8_lumped.tex", setup_3d, solver_class)
     # Run the non-lumped case
+    print("solve not lumped case8")
     run_3d(solve_not_lumped, folder, "case8_not_lump.tex", setup_3d, solver_class)

@@ -4,6 +4,7 @@ from analytical_solutions import cosserat_exact_2d, cosserat_exact_3d
 
 
 def solve_lumped(dim, mesh_size, folder, setup, solver_class):
+    print("solve_lumped for mesh_size", mesh_size)
     data, data_pb, key = setup()
 
     solver = solver_class(dim, key)
@@ -14,6 +15,7 @@ def solve_lumped(dim, mesh_size, folder, setup, solver_class):
 
 
 def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
+    print("solve_not_lumped for mesh_size", mesh_size)
     data, data_pb, key = setup()
 
     solver = solver_class(dim, key)

@@ -316,6 +316,8 @@ class SolverBDM1_L1(Solver):
 
         l1_stiff = self.l1.assemble_stiff_matrix(self.sd)
         inv_Pr = sps.csr_matrix(l1_stiff)
+        inv_Pr.indices = inv_Pr.indices.astype(np.int32)
+        inv_Pr.indptr = inv_Pr.indptr.astype(np.int32)
 
         amg_r = pyamg.smoothed_aggregation_solver(inv_Pr)
         P_L1 = amg_r.aspreconditioner()

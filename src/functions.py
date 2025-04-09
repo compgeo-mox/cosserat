@@ -5,7 +5,7 @@ from analytical_solutions import cosserat_exact_2d, cosserat_exact_3d
 
 def solve_lumped(dim, mesh_size, folder, setup, solver_class):
     print("solve_lumped for mesh_size", mesh_size)
-    data, data_pb, key = setup()
+    data, data_pb, key = setup
 
     solver = solver_class(dim, key)
     solver.create_grid(mesh_size, folder)
@@ -16,7 +16,7 @@ def solve_lumped(dim, mesh_size, folder, setup, solver_class):
 
 def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
     print("solve_not_lumped for mesh_size", mesh_size)
-    data, data_pb, key = setup()
+    data, data_pb, key = setup
 
     solver = solver_class(dim, key)
     solver.create_grid(mesh_size, folder)
@@ -89,8 +89,8 @@ def array_to_latex(arr):
         "ord",
         "$err_r$",
         "ord",
-        "dofs_u",
-        "dofs_r",
+        "$dofs_u$",
+        "$dofs_r$",
     ]
 
     formatted_rows = [" & ".join("{:.2e}".format(num) for num in row) for row in arr]

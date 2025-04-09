@@ -15,10 +15,12 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+    data_setup = setup_3d()
+
     solver_class = SolverBDM1_P0
     # Run the lumped case
     print("solve lumped case4")
-    run_3d(solve_lumped, folder, "case4_lumped.tex", setup_3d, solver_class)
+    run_3d(solve_lumped, folder, "case4_lumped.tex", data_setup, solver_class)
     # Run the non-lumped case
     print("solve not lumped case4")
-    run_3d(solve_not_lumped, folder, "case4_not_lump.tex", setup_3d, solver_class)
+    run_3d(solve_not_lumped, folder, "case4_not_lump.tex", data_setup, solver_class)

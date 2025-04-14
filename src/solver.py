@@ -49,7 +49,7 @@ class Solver:
         )
         self.sd.compute_geometry()
 
-    def solve_problem(self, data, data_pb):
+    def solve_problem(self, data, data_pb, tol=1e-7):
         # Compute the number of dofs
         dofs = np.array(
             [
@@ -82,17 +82,23 @@ class Solver:
         rhs[split_idx[1] : split_idx[2]] += u_for
         rhs[split_idx[2] :] += r_for
 
-        ls = pg.LinearSystem(spp, rhs)
-        x = ls.solve()
+        print("shape", spp.shape, rhs.shape)
+        P_op = self.create_precond(spp, split_idx)
+
+        callback = IterationCallback()
+        x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
+        it = callback.get_iteration_count()
         s, w, u, r = np.split(x, split_idx)
+
+        print("iteration count: ", it)
 
         # compute the error
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs
+        return h, *err, *dofs, it
 
-    def solve_problem_lumped(self, data, data_pb):
+    def solve_problem_lumped(self, data, data_pb, tol=1e-7):
         # Compute the number of dofs
         dofs = np.array(
             [
@@ -130,10 +136,10 @@ class Solver:
         x_bc = ls.solve(pg.block_diag_solver_dense)
         rhs -= B @ x_bc
 
-        P_op = self.create_precond(spp)
+        P_op = self.create_precond_lumped(spp)
 
         callback = IterationCallback()
-        x, _ = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=1e-7)
+        x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
         it = callback.get_iteration_count()
         u, r = np.split(x, split_idx)
 
@@ -164,6 +170,58 @@ class Solver:
         M_r = self.dis_r.assemble_mass_matrix(self.sd)
 
         return M_s, M_w, M_u, M_r
+
+    def create_precond(self, spp, split_idx):
+        # Build the preconditioner for s and w
+        inv_P_bdm1 = self.bdm1.assemble_mass_matrix(self.sd)
+        inv_P_bdm1 += self.bdm1.assemble_stiff_matrix(self.sd)
+
+        inv_P_bdm1 = sps.csr_matrix(inv_P_bdm1)
+        inv_P_bdm1.indices = inv_P_bdm1.indices.astype(np.int32)
+        inv_P_bdm1.indptr = inv_P_bdm1.indptr.astype(np.int32)
+
+        amg_bdm1 = pyamg.smoothed_aggregation_solver(inv_P_bdm1)
+        P_bdm1 = amg_bdm1.aspreconditioner()
+
+        inv_P_p0 = self.p0.assemble_mass_matrix(self.sd)
+        P_p0 = sps.diags(1 / inv_P_p0.diagonal())
+
+        if isinstance(self, SolverBDM1_P0):
+            inv_Pr = self.p0.assemble_mass_matrix(self.sd)
+        else:
+            inv_Pr = self.l1.assemble_mass_matrix(self.sd)
+
+        inv_Pr = sps.csr_matrix(inv_Pr)
+        inv_Pr.indices = inv_Pr.indices.astype(np.int32)
+        inv_Pr.indptr = inv_Pr.indptr.astype(np.int32)
+
+        amg_r = pyamg.smoothed_aggregation_solver(inv_Pr)
+        P_r = amg_r.aspreconditioner()
+
+        num = 1 if self.dim == 2 else 3
+
+        def matvec(x):
+            x_s, x_w, x_u, x_r = np.split(x, split_idx)
+
+            s = np.array(
+                [P_bdm1.matvec(x_part) for x_part in np.array_split(x_s, self.sd.dim)]
+            ).ravel()
+
+            w = np.array(
+                [P_bdm1.matvec(x_part) for x_part in np.array_split(x_w, num)]
+            ).ravel()
+
+            u = np.array(
+                [P_p0 @ x_part for x_part in np.array_split(x_u, self.sd.dim)]
+            ).ravel()
+
+            r = np.array(
+                [P_r.matvec(x_part) for x_part in np.array_split(x_r, num)]
+            ).ravel()
+
+            return np.concatenate([s, w, u, r])
+
+        return sps.linalg.LinearOperator(spp.shape, matvec=matvec)
 
 
 class SolverBDM1_P0(Solver):
@@ -208,7 +266,7 @@ class SolverBDM1_P0(Solver):
 
         return err_s, err_w, err_u, err_r
 
-    def create_precond(self, spp):
+    def create_precond_lumped(self, spp):
         # solve the saddle point problem using minres and a preconditioner
         rt0 = pg.RT0(self.key)
         L = rt0.assemble_lumped_matrix(self.sd)
@@ -299,7 +357,7 @@ class SolverBDM1_L1(Solver):
 
         return err_s, err_w, err_u, err_r
 
-    def create_precond(self, spp):
+    def create_precond_lumped(self, spp):
         # solve the saddle point problem using minres and a preconditioner
         rt0 = pg.RT0(self.key)
         L = rt0.assemble_lumped_matrix(self.sd)

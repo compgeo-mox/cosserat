@@ -70,7 +70,7 @@ class Solver:
         # Build the global system
         A = sps.block_diag([M_s, M_w])
         B = sps.block_array([[-div_s, None], [asym, -div_w]])
-        spp = sps.block_array([[A, -B.T], [B, None]]).tocsc()
+        spp = sps.block_array([[A, -B.T], [-B, None]]).tocsc()
 
         # Assemble the source terms
         u_bc, r_bc, u_for, r_for = self.build_bc_for(M_u, M_r, data_pb)
@@ -79,14 +79,14 @@ class Solver:
         rhs = np.zeros(spp.shape[0])
         rhs[: split_idx[0]] += u_bc
         rhs[split_idx[0] : split_idx[1]] += r_bc
-        rhs[split_idx[1] : split_idx[2]] += u_for
-        rhs[split_idx[2] :] += r_for
+        rhs[split_idx[1] : split_idx[2]] -= u_for
+        rhs[split_idx[2] :] -= r_for
 
         print("shape", spp.shape, rhs.shape)
         P_op = self.create_precond(spp, split_idx)
 
         callback = IterationCallback()
-        x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
+        x, _ = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=tol)
         it = callback.get_iteration_count()
         s, w, u, r = np.split(x, split_idx)
 
@@ -201,6 +201,7 @@ class Solver:
         num = 1 if self.dim == 2 else 3
 
         def matvec(x):
+            x = x.astype(float)
             x_s, x_w, x_u, x_r = np.split(x, split_idx)
 
             s = np.array(

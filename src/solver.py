@@ -49,7 +49,7 @@ class Solver:
         )
         self.sd.compute_geometry()
 
-    def solve_problem(self, data, data_pb, tol=1e-12):
+    def solve_problem(self, data, data_pb, tol=1e-9):
         # Compute the number of dofs
         dofs = np.array(
             [
@@ -98,7 +98,7 @@ class Solver:
 
         return h, *err, *dofs, it
 
-    def solve_problem_lumped(self, data, data_pb, tol=1e-12):
+    def solve_problem_lumped(self, data, data_pb, tol=1e-9):
         # Compute the number of dofs
         dofs = np.array(
             [

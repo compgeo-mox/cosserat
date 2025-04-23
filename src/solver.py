@@ -83,20 +83,21 @@ class Solver:
         rhs[split_idx[2] :] -= r_for
 
         print("shape", spp.shape, rhs.shape)
-        P_op = self.create_precond(spp, split_idx)
+        # P_op = self.create_precond(spp, split_idx)
 
-        callback = IterationCallback()
-        x, _ = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=tol)
-        it = callback.get_iteration_count()
+        # callback = IterationCallback()
+        # x, _ = sps.linalg.minres(spp, rhs, M=P_op, callback=callback, rtol=tol)
+        # it = callback.get_iteration_count()
+        x = sps.linalg.spsolve(spp, rhs)
         s, w, u, r = np.split(x, split_idx)
 
-        print("iteration count: ", it)
+        # print("iteration count: ", it)
 
         # compute the error
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs, it
+        return h, *err, *dofs  # , it
 
     def solve_problem_lumped(self, data, data_pb, tol=1e-9):
         # Compute the number of dofs
@@ -136,11 +137,12 @@ class Solver:
         x_bc = ls.solve(pg.block_diag_solver_dense)
         rhs -= B @ x_bc
 
-        P_op = self.create_precond_lumped(spp)
+        # P_op = self.create_precond_lumped(spp)
 
-        callback = IterationCallback()
-        x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
-        it = callback.get_iteration_count()
+        # callback = IterationCallback()
+        # x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
+        # it = callback.get_iteration_count()
+        x = sps.linalg.spsolve(spp, rhs)
         u, r = np.split(x, split_idx)
 
         y = inv_ABT @ x + x_bc
@@ -150,7 +152,7 @@ class Solver:
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs, it
+        return h, *err, *dofs  # , it
 
     def build_mass(self, data, is_lumped):
         if is_lumped:

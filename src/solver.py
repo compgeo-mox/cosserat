@@ -25,6 +25,9 @@ class Solver:
         self.vec_bdm1 = pg.VecBDM1(key)
         self.bdm1 = pg.BDM1(key)
 
+        self.vec_rt1 = pg.VecRT1(key)
+        self.rt1 = pg.RT1(key)
+
         self.vec_p0 = pg.VecPwConstants(key)
         self.p0 = pg.PwConstants(key)
 
@@ -33,6 +36,9 @@ class Solver:
 
         self.p1 = pg.PwLinears(key)
         self.vec_p1 = pg.VecPwLinears(key)
+
+        self.p2 = pg.PwQuadratics(key)
+        self.vec_p2 = pg.VecPwQuadratics(key)
 
         self.l2 = pg.Lagrange2(key)
         self.vec_l2 = pg.VecLagrange2(key)
@@ -262,8 +268,8 @@ class SolverBDM1_P0(Solver):
         s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
         u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
 
-        err_s = self.dis_s.error_l2(self.sd, s, s_ex, data=data)
-        err_w = self.dis_w.error_l2(self.sd, w, w_ex, data=data)
+        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
+        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         err_r = self.dis_r.error_l2(self.sd, r, r_ex)
 
@@ -349,8 +355,8 @@ class SolverBDM1_L1(Solver):
         s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
         u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
 
-        err_s = self.dis_s.error_l2(self.sd, s, s_ex, data=data)
-        err_w = self.dis_w.error_l2(self.sd, w, w_ex, data=data)
+        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
+        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         r_l2 = self.dis_r.proj_to_lagrange2(self.sd) @ r
         if self.dim == 2:
@@ -399,3 +405,77 @@ class SolverBDM1_L1(Solver):
             return np.concatenate([u, r])
 
         return sps.linalg.LinearOperator(spp.shape, matvec=matvec)
+
+
+class SolverRT1_L1(Solver):
+    def create_family(self):
+        self.dis_s = self.vec_rt1
+        self.dis_w = self.rt1 if self.dim == 2 else self.vec_rt1
+        self.dis_u = self.vec_p1
+        self.dis_r = self.l1 if self.dim == 2 else self.vec_l1
+
+    def build_diff(self, M_u, M_r):
+        if self.dim == 2:
+            M_p2 = self.p2.assemble_lumped_matrix(self.sd)
+            M_p1 = self.p1.assemble_mass_matrix(self.sd)
+        else:
+            M_p2 = self.vec_p2.assemble_lumped_matrix(self.sd)
+            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
+
+        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
+        l2 = pg.Lagrange2(self.key)
+        proj_l1_p2 = l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+
+        div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
+
+        asym_op = self.dis_s.assemble_asym_matrix(self.sd)
+        asym = proj_l1_p2.T @ M_p2 @ asym_op
+
+        proj_l1_p1 = self.dis_r.proj_to_pwLinears(self.sd)
+        div_w_op = self.dis_w.assemble_diff_matrix(self.sd)
+
+        div_w = proj_l1_p1.T @ M_p1 @ div_w_op
+
+        return div_s, asym, div_w
+
+    def build_bc_for(self, M_u, M_r, data_pb):
+        f_u, f_r = data_pb["f_u"], data_pb["f_r"]
+
+        if self.dim == 2:
+            M_p2 = self.p2.assemble_lumped_matrix(self.sd)
+            r_interp = self.p2.interpolate(self.sd, f_r)
+        else:
+            M_p2 = self.vec_p2.assemble_lumped_matrix(self.sd)
+            r_interp = self.vec_p2.interpolate(self.sd, f_r)
+
+        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
+        l2 = pg.Lagrange2(self.key)
+        proj_l1_p2 = l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+
+        # Assemble the source terms
+        u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
+        r_for = proj_l1_p2.T @ M_p2 @ r_interp
+
+        # Assemble the boundary conditions
+        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
+        bd_faces = self.sd.tags["domain_boundary_faces"]
+        u_bc = self.dis_s.assemble_nat_bc(self.sd, u_ex, bd_faces)
+        r_bc = self.dis_w.assemble_nat_bc(self.sd, r_ex, bd_faces)
+
+        return u_bc, r_bc, u_for, r_for
+
+    def compute_err(self, s, w, u, r, data, data_pb):
+        # compute the error
+        s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
+        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
+
+        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
+        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
+        err_u = self.dis_u.error_l2(self.sd, u, u_ex)
+        r_l2 = self.dis_r.proj_to_lagrange2(self.sd) @ r
+        if self.dim == 2:
+            err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
+        else:
+            err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
+
+        return err_s, err_w, err_u, err_r

@@ -415,16 +415,17 @@ class SolverRT1_L1(Solver):
         self.dis_r = self.l1 if self.dim == 2 else self.vec_l1
 
     def build_diff(self, M_u, M_r):
+        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
+
         if self.dim == 2:
             M_p2 = self.p2.assemble_lumped_matrix(self.sd)
             M_p1 = self.p1.assemble_mass_matrix(self.sd)
+            proj_l1_p2 = self.l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+
         else:
             M_p2 = self.vec_p2.assemble_lumped_matrix(self.sd)
             M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
-
-        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
-        l2 = pg.Lagrange2(self.key)
-        proj_l1_p2 = l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+            proj_l1_p2 = self.vec_l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
 
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
@@ -440,17 +441,16 @@ class SolverRT1_L1(Solver):
 
     def build_bc_for(self, M_u, M_r, data_pb):
         f_u, f_r = data_pb["f_u"], data_pb["f_r"]
+        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
 
         if self.dim == 2:
             M_p2 = self.p2.assemble_lumped_matrix(self.sd)
             r_interp = self.p2.interpolate(self.sd, f_r)
+            proj_l1_p2 = self.l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
         else:
             M_p2 = self.vec_p2.assemble_lumped_matrix(self.sd)
             r_interp = self.vec_p2.interpolate(self.sd, f_r)
-
-        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
-        l2 = pg.Lagrange2(self.key)
-        proj_l1_p2 = l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+            proj_l1_p2 = self.vec_l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
 
         # Assemble the source terms
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)

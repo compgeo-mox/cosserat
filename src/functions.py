@@ -1,5 +1,6 @@
 import numpy as np
 import porepy as pp
+import copy
 from analytical_solutions import cosserat_exact_2d, cosserat_exact_3d
 
 
@@ -10,8 +11,7 @@ def solve_lumped(dim, mesh_size, folder, setup, solver_class):
     solver = solver_class(dim, key)
     solver.create_grid(mesh_size, folder)
     solver.create_family()
-
-    return solver.solve_problem_lumped(data, data_pb)
+    return solver.solve_problem_lumped(copy.deepcopy(data), data_pb)
 
 
 def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
@@ -22,12 +22,12 @@ def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
     solver.create_grid(mesh_size, folder)
     solver.create_family()
 
-    return solver.solve_problem(data, data_pb)
+    return solver.solve_problem(copy.deepcopy(data), data_pb)
 
 
 def run_2d(func, folder, file_name, setup, solver_class):
     dim = 2
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 6))
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))
     errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
     errs_latex = make_summary(errs)
 

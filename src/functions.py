@@ -27,7 +27,7 @@ def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
 
 def run_2d(func, folder, file_name, setup, solver_class):
     dim = 2
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 3))
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 6))
     errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
     errs_latex = make_summary(errs)
 

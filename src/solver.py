@@ -243,7 +243,7 @@ class SolverBDM1_P0(Solver):
     def build_diff(self, M_u, M_r):
         # Build the differential matrices
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
-        asym = M_r @ self.dis_s.assemble_asym_matrix(self.sd)
+        asym = M_r @ self.dis_s.assemble_asym_matrix(self.sd, as_pwconstant=True)
         div_w = M_r @ self.dis_w.assemble_diff_matrix(self.sd)
 
         return div_s, asym, div_w

@@ -14,6 +14,13 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+    # Open a log file
+    log_file = open(os.path.join(folder, "case9_output.log"), "w")
+
+    # Redirect stdout and stderr
+    sys.stdout = log_file
+    sys.stderr = log_file
+
     data_setup = setup_2d()
 
     solver_class = SolverRT1_L1
@@ -23,3 +30,5 @@ if __name__ == "__main__":
     # Run the non-lumped case
     print("solve not lumped case9")
     run_2d(solve_not_lumped, folder, "case9_not_lump.tex", data_setup, solver_class)
+
+    log_file.close()

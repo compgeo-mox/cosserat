@@ -18,8 +18,8 @@ if __name__ == "__main__":
     log_file = open(os.path.join(folder, "case12_output.log"), "w")
 
     # Redirect stdout and stderr
-    sys.stdout = log_file
-    sys.stderr = log_file
+    # sys.stdout = log_file
+    # sys.stderr = log_file
 
     data_setup = setup_2d()
 

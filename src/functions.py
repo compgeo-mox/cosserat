@@ -1,7 +1,12 @@
 import numpy as np
 import porepy as pp
 import copy
-from analytical_solutions import cosserat_exact_2d, cosserat_exact_3d
+from analytical_solutions import (
+    cosserat_exact_2d,
+    cosserat_exact_3d,
+    elasticity_exact_2d,
+    elasticity_exact_3d,
+)
 
 
 def solve_lumped(dim, mesh_size, folder, setup, solver_class):
@@ -55,6 +60,17 @@ def setup_2d():
     mu_w = 0.5
     data_pb = cosserat_exact_2d(mu_s, mu_sc, lambda_s, mu_w)
     data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
+
+    return data, data_pb, key
+
+
+def setup_2d_ela():
+    key = "elasticity"
+
+    # return the exact solution and related rhs
+    mu_s, lambda_s = 0.5, 1
+    data_pb = elasticity_exact_2d(mu_s, lambda_s)
+    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
 
     return data, data_pb, key
 

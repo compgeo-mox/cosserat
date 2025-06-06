@@ -110,12 +110,11 @@ if __name__ == "__main__":
     P2 = pg.PwQuadratics() if dim == 2 else pg.VecPwQuadratics()
 
     M1 = P1.assemble_mass_matrix(sd)
+    ML1 = P1.assemble_lumped_matrix(sd)
     M2 = P2.assemble_mass_matrix(sd)
 
     # EXAMPLES
     B_bdm1_p1 = M1 @ div_bdm1
-    B_bdm1_l1 = L1.proj_to_pwLinears(sd).T @ B_bdm1_p1
+    B_bdm1_l1 = L1.proj_to_pwLinears(sd).T @ ML1 @ div_bdm1
     B_rt1_p1 = P1.proj_to_pwQuadratics(sd).T @ M2 @ div_rt1
     B_rt1_l1 = L1.proj_to_pwLinears(sd).T @ B_rt1_p1
-
-    pass

@@ -157,8 +157,17 @@ class Solver:
 
         # callback = IterationCallback()
         # x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
+
+        # Incomplete LU factorization
+        ilu = sps.linalg.spilu(spp.tocsc())
+
+        # Create a LinearOperator from the inverse of the LU factorization
+        M_x = lambda x: ilu.solve(x)
+        M = sps.linalg.LinearOperator(spp.shape, M_x)
+        x, _ = sps.linalg.gmres(spp, rhs, M=M)  # cg, minres, bcgstab
+
         # it = callback.get_iteration_count()
-        x = sps.linalg.spsolve(spp, rhs)
+        # x = sps.linalg.spsolve(spp, rhs)
         u, r = np.split(x, split_idx)
 
         y = inv_ABT @ x + x_bc

@@ -159,7 +159,7 @@ class Solver:
         # x, _ = sps.linalg.bicgstab(spp, rhs, M=P_op, callback=callback, rtol=tol)
 
         # Incomplete LU factorization
-        ilu = sps.linalg.spilu(spp.tocsc())
+        ilu = sps.linalg.spilu(spp.tocsc(), drop_tol=1e-2)
 
         # Create a LinearOperator from the inverse of the LU factorization
         M_x = lambda x: ilu.solve(x)

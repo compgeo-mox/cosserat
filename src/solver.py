@@ -106,6 +106,11 @@ class Solver:
         return h, *err, *dofs  # , it
 
     def solve_problem_lumped(self, data, data_pb, tol=1e-9):
+        # Step 1: Solve the lumped system
+        info = self.step1(data, data_pb, tol)
+        return self.step2(*info)
+
+    def step1(self, data, data_pb, tol):
         # Compute the number of dofs
         dofs = np.array(
             [
@@ -128,20 +133,25 @@ class Solver:
         # solve the block diagonal system
         ls = pg.LinearSystem(A, B.T)
         inv_ABT = ls.solve(pg.block_diag_solver)
-        spp = B @ inv_ABT
 
         # Assemble the source terms
         u_bc, r_bc, u_for, r_for = self.build_bc_for(M_u, M_r, data_pb)
         x_bc = np.concatenate([u_bc, r_bc])
 
         # Assemble the right-hand side
-        rhs = np.zeros(spp.shape[0])
+        rhs = np.zeros(dofs.sum())
         rhs[: split_idx[0]] += u_for
         rhs[split_idx[0] :] += r_for
 
         ls = pg.LinearSystem(A, x_bc)
         x_bc = ls.solve(pg.block_diag_solver_dense)
         rhs -= B @ x_bc
+
+        return inv_ABT, B, rhs, x_bc, split_idx, data, data_pb, dofs
+
+    def step2(self, inv_ABT, B, rhs, x_bc, split_idx, data, data_pb, dofs):
+        # solve the saddle point problem using minres and a preconditioner
+        spp = B @ inv_ABT
 
         # P_op = self.create_precond_lumped(spp)
 

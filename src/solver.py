@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse as sps
 import pyamg
 
+import porepy as pp
 import pygeon as pg
 
 
@@ -164,7 +165,7 @@ class Solver:
         # Create a LinearOperator from the inverse of the LU factorization
         # M_x = lambda x: ilu.solve(x)
         # M = sps.linalg.LinearOperator(spp.shape, M_x)
-        x, _ = sps.linalg.gmres(spp, rhs)  # cg, minres, bcgstab
+        x, _ = sps.linalg.bicgstab(spp, rhs)  # cg, minres, bcgstab gmres
 
         # it = callback.get_iteration_count()
         # x = sps.linalg.spsolve(spp, rhs)

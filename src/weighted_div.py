@@ -106,9 +106,11 @@ if __name__ == "__main__":
     div_rt1 = compute_weighted_div(sd, ell, rt1)
 
     L1 = pg.Lagrange1() if dim == 2 else pg.VecLagrange1()
+    P0 = pg.PwConstants() if dim == 2 else pg.VecPwConstants()
     P1 = pg.PwLinears() if dim == 2 else pg.VecPwLinears()
     P2 = pg.PwQuadratics() if dim == 2 else pg.VecPwQuadratics()
 
+    M0 = P0.assemble_mass_matrix(sd)
     M1 = P1.assemble_mass_matrix(sd)
     ML1 = P1.assemble_lumped_matrix(sd)
     M2 = P2.assemble_mass_matrix(sd)

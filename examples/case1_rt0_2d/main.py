@@ -8,15 +8,14 @@ import pygeon as pg
 sys.path.append("./src")
 
 from functions import order
-from analytical_solutions import cosserat_exact_2d
+from analytical_solutions import cosserat_exact
 
 
 def main(mesh_size):
-
     # return the exact solution and related rhs
     mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
     mu_w = 0.5
-    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact_2d(
+    sigma_ex, w_ex, u_ex, r_ex, _, f_u, f_r = cosserat_exact(
         mu_s, mu_sc, lambda_s, mu_w
     )
 

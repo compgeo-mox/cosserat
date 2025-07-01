@@ -1,12 +1,8 @@
 import numpy as np
 import porepy as pp
 import copy
-from analytical_solutions import (
-    cosserat_exact_2d,
-    cosserat_exact_3d,
-    elasticity_exact_2d,
-    elasticity_exact_3d,
-)
+
+import strong_solution_cosserat_elasticity_example_3 as ss
 
 
 def solve_lumped(dim, mesh_size, folder, setup, solver_class):
@@ -32,8 +28,9 @@ def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
 
 def run_2d(func, folder, file_name, setup, solver_class):
     dim = 2
-    mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
+    mesh_size = np.power(2.0, -np.arange(5, 5 + 1))  # 3, 3 + 5
     errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
+    print(errs)
     errs_latex = make_summary(errs)
 
     # Write to a file
@@ -52,37 +49,62 @@ def run_3d(func, folder, file_name, setup, solver_class):
         file.write(errs_latex)
 
 
-def setup_2d():
+def setup(dim):
     key = "cosserat"
 
     # return the exact solution and related rhs
-    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
-    mu_w = 0.5
-    data_pb = cosserat_exact_2d(mu_s, mu_sc, lambda_s, mu_w)
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
+    lambda_, mu, kappa = 1, 1, 0.1
 
-    return data, data_pb, key
+    param = {
+        "lambda_s": lambda_,
+        "mu_s": mu,
+        "kappa_s": kappa,
+        "lambda_o": lambda_,
+        "mu_o": mu,
+        "kappa_o": kappa,
+    }
 
+    def stress(pt):
+        s = ss.stress(param, dim)(*pt)
+        if dim == 2:
+            s = np.hstack((s, np.zeros((2, 1))))
+        return s
 
-def setup_2d_ela():
-    key = "elasticity"
+    def couple_stress_scaled(pt):
+        s = ss.couple_stress_scaled(param, dim)(*pt)
+        if dim == 2:
+            s = np.hstack((s[0], 0))
+        return s
 
-    # return the exact solution and related rhs
-    mu_s, lambda_s = 0.5, 1
-    data_pb = elasticity_exact_2d(mu_s, lambda_s)
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s}}}
+    def rotation(pt):
+        r = ss.rotation(param, dim)(*pt)
+        if dim == 2:
+            r = r[0]
+        return r
 
-    return data, data_pb, key
+    def rhs_scaled_u(pt):
+        rhs = ss.rhs_scaled(param, dim)(*pt)
+        if dim == 2:
+            rhs = rhs[:2]
+        return rhs
 
+    def rhs_scaled_r(pt):
+        rhs = ss.rhs_scaled(param, dim)(*pt)
+        if dim == 2:
+            rhs = rhs[-1]
+        return rhs
 
-def setup_3d():
-    key = "cosserat"
+    data_pb = {
+        "s_ex": stress,
+        "w_ex": couple_stress_scaled,
+        "u_ex": lambda pt: ss.displacement(param, dim)(*pt),
+        "r_ex": rotation,
+        "f_r": rhs_scaled_r,
+        "f_u": rhs_scaled_u,
+        "ell": lambda pt: ss.gamma_s(dim)(*pt),
+    }
 
-    # return the exact solution and related rhs
-    mu_s, mu_sc, lambda_s = 0.5, 0.25, 1
-    mu_w, mu_wc, lambda_w = 0.5, 0.25, 1
-    data_pb = cosserat_exact_3d(mu_s, mu_sc, lambda_s, mu_w, mu_wc, lambda_w)
-    data = {pp.PARAMETERS: {key: {"mu": mu_s, "lambda": lambda_s, "mu_c": mu_sc}}}
+    data = {pp.PARAMETERS: {key: {"mu": mu, "lambda": lambda_, "mu_c": kappa}}}
 
     return data, data_pb, key
 

@@ -21,7 +21,7 @@ if __name__ == "__main__":
     sys.stdout = log_file
     sys.stderr = log_file
 
-    data_setup = setup_3d()
+    data_setup = setup()
 
     solver_class = SolverRT1_L1
     # Run the lumped case

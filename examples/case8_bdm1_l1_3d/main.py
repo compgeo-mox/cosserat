@@ -15,7 +15,7 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    data_setup = setup_3d()
+    data_setup = setup()
 
     solver_class = SolverBDM1_L1
     # Run the lumped case

@@ -40,8 +40,23 @@ class Solver:
 
     def create_grid(self, mesh_size, folder):
         mesh_file_name = os.path.join(folder, "grid.msh")
+
+        if self.dim == 2:
+            fracs = [
+                pp.LineFracture(np.array([[1 / 3, 1 / 3], [0, 1 / 3]])),
+                pp.LineFracture(np.array([[0, 1 / 3], [1 / 3, 1 / 3]])),
+                pp.LineFracture(np.array([[2 / 3, 2 / 3], [0, 2 / 3]])),
+                pp.LineFracture(np.array([[0, 2 / 3], [2 / 3, 2 / 3]])),
+                pp.LineFracture(np.array([[0, 1], [0, 1]])),
+            ]
+
         self.sd = pg.unit_grid(
-            self.dim, mesh_size, as_mdg=False, file_name=mesh_file_name
+            self.dim,
+            mesh_size,
+            as_mdg=False,
+            file_name=mesh_file_name,
+            fractures=fracs,
+            constraints=np.arange(len(fracs)),
         )
         self.sd.compute_geometry()
 
@@ -66,23 +81,25 @@ class Solver:
         # Build the global system
         A = sps.block_diag([M_s, M_w])
         B = sps.block_array([[-div_s, None], [asym, -div_w]])
-        spp = sps.block_array([[A, -B.T], [-B, None]]).tocsc()
+        spp = sps.block_array([[A, -B.T], [B, None]]).tocsc()
 
         # Assemble the source terms
-        r_for = self.build_bc_for(M_u, M_r, data_pb)
+        r_for, u_for = self.build_bc_for(M_u, M_r, data_pb)
 
         # Assemble the right-hand side
         rhs = np.zeros(spp.shape[0])
+        rhs[split_idx[1] : split_idx[2]] -= u_for
         rhs[split_idx[2] :] -= r_for
 
-        x, _ = sps.linalg.bicgstab(spp, rhs)
+        ls = pg.LinearSystem(spp, rhs)
+        x = ls.solve()
         s, w, u, r = np.split(x, split_idx)
 
         # compute the error
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs
+        return h, *err, np.sum(dofs)
 
     def solve_problem_lumped(self, data, data_pb, tol=1e-9):
         # Step 1: Solve the lumped system
@@ -118,8 +135,8 @@ class Solver:
 
         # Assemble the right-hand side
         rhs = np.zeros(dofs.sum())
-        rhs[: split_idx[0]] += u_for
-        rhs[split_idx[0] :] += r_for
+        rhs[: split_idx[0]] -= u_for
+        rhs[split_idx[0] :] -= r_for
 
         return inv_ABT, B, rhs, split_idx, data, data_pb, dofs
 
@@ -128,7 +145,8 @@ class Solver:
         spp = B @ inv_ABT
 
         # x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
-        x = sps.linalg.spsolve(spp, rhs)
+        ls = pg.LinearSystem(spp, rhs)
+        x = ls.solve()
         u, r = np.split(x, split_idx)
         s, w = np.split(inv_ABT @ x, [self.dis_s.ndof(self.sd)])
 
@@ -136,19 +154,24 @@ class Solver:
         err = self.compute_err(s, w, u, r, data, data_pb)
         h = np.amax(self.sd.cell_diameters())
 
-        return h, *err, *dofs
+        return h, *err, np.sum(dofs)
 
     def build_mass(self, data, is_lumped):
+        mu = data[pp.PARAMETERS][self.key]["mu"]
+        mu_c = data[pp.PARAMETERS][self.key]["mu_c"]
+
         if is_lumped:
             M_s = self.dis_s.assemble_lumped_matrix_cosserat(self.sd, data)
             if self.dim == 2:
                 M_w = self.dis_w.assemble_lumped_matrix(self.sd, data)
+                M_w /= mu + mu_c
             else:
                 M_w = self.dis_w.assemble_lumped_matrix_cosserat(self.sd, data)
         else:
             M_s = self.dis_s.assemble_mass_matrix_cosserat(self.sd, data)
             if self.dim == 2:
                 M_w = self.dis_w.assemble_mass_matrix(self.sd, data)
+                M_w /= mu + mu_c
             else:
                 M_w = self.dis_w.assemble_mass_matrix_cosserat(self.sd, data)
 
@@ -166,27 +189,31 @@ class SolverBDM1_P0(Solver):
         self.dis_r = self.p0 if self.dim == 2 else self.vec_p0
 
     def build_diff(self, data_pb, M_u, M_r):
+        ell = data_pb["ell"]
+
+        if self.dim == 2:
+            proj_p0 = self.p1.proj_to_pwConstants(self.sd)
+        else:
+            proj_p0 = self.vec_p1.proj_to_pwConstants(self.sd)
+
         # Build the differential matrices
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
         asym = M_r @ self.dis_s.assemble_asym_matrix(self.sd, as_pwconstant=True)
-        div_w = M_r @ self.dis_w.assemble_diff_matrix(self.sd)
+
+        div_op = compute_weighted_div(self.sd, ell, self.vec_bdm1)
+        div_w = M_r @ proj_p0 @ div_op
 
         return div_s, asym, div_w
 
     def build_bc_for(self, M_u, M_r, data_pb):
-        f_u, f_r = data_pb["f_u"], data_pb["f_r"]
+        f_r = data_pb["f_r"]
+        f_u = data_pb["f_u"]
 
         # Assemble the source terms
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
         r_for = M_r @ self.dis_r.interpolate(self.sd, f_r)
 
-        # Assemble the boundary conditions
-        bd_faces = self.sd.tags["domain_boundary_faces"]
-        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
-        u_bc = self.dis_s.assemble_nat_bc(self.sd, u_ex, bd_faces)
-        r_bc = self.dis_w.assemble_nat_bc(self.sd, r_ex, bd_faces)
-
-        return u_bc, r_bc, u_for, r_for
+        return r_for, u_for
 
     def compute_err(self, s, w, u, r, data, data_pb):
         # compute the error
@@ -197,6 +224,18 @@ class SolverBDM1_P0(Solver):
         err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         err_r = self.dis_r.error_l2(self.sd, r, r_ex)
+
+        u_ex_int = self.dis_u.interpolate(self.sd, u_ex)
+        proj_r = self.dis_r.eval_at_cell_centers(self.sd)
+        r_ex_int = proj_r @ self.dis_r.interpolate(self.sd, r_ex)
+        r = proj_r @ r
+
+        proj_u = self.vec_p0.eval_at_cell_centers(self.sd)
+        u = (proj_u @ u).reshape((2, -1))
+        u = np.vstack((u, np.zeros(u.shape[1])))
+
+        u_ex_int = (proj_u @ u_ex_int).reshape((2, -1))
+        u_ex_int = np.vstack((u_ex_int, np.zeros(u_ex_int.shape[1])))
 
         return err_s, err_w, err_u, err_r
 
@@ -270,11 +309,6 @@ class SolverBDM1_L1(Solver):
         u_ex_int = (proj_u @ u_ex_int).reshape((2, -1))
         u_ex_int = np.vstack((u_ex_int, np.zeros(u_ex_int.shape[1])))
 
-        save = pp.Exporter(self.sd, "sol", folder_name="/home/elle/")
-        save.write_vtu(
-            [("u", u), ("u_ex", u_ex_int)], data_pt=[("r", r), ("r_ex", r_ex_int)]
-        )
-
         return err_s, err_w, err_u, err_r
 
 
@@ -286,27 +320,26 @@ class SolverRT1_L1(Solver):
         self.dis_r = self.l1 if self.dim == 2 else self.vec_l1
 
     def build_diff(self, data_pb, M_u, M_r):
-        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
+        ell = data_pb["ell"]
 
         if self.dim == 2:
-            M_p2 = self.p2.assemble_lumped_matrix(self.sd)
-            M_p1 = self.p1.assemble_mass_matrix(self.sd)
-            proj_l1_p2 = self.p2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+            M_p2 = self.p2.assemble_mass_matrix(self.sd)
+            proj_p1_p2 = self.p1.proj_to_pwQuadratics(self.sd)
+            proj_l1_p1 = self.l1.proj_to_pwLinears(self.sd)
 
         else:
-            M_p2 = self.vec_p2.assemble_lumped_matrix(self.sd)
-            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
-            proj_l1_p2 = self.vec_l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+            M_p2 = self.vec_p2.assemble_mass_matrix(self.sd)
+            proj_p1_p2 = self.vec_p1.proj_to_pwQuadratics(self.sd)
+            proj_l1_p1 = self.vec_l1.proj_to_pwLinears(self.sd)
 
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
+        proj_l1_p2 = proj_p1_p2 @ proj_l1_p1
         asym_op = self.dis_s.assemble_asym_matrix(self.sd)
         asym = proj_l1_p2.T @ M_p2 @ asym_op
 
-        proj_l1_p1 = self.dis_r.proj_to_pwLinears(self.sd)
-        div_w_op = self.dis_w.assemble_diff_matrix(self.sd)
-
-        div_w = proj_l1_p1.T @ M_p1 @ div_w_op
+        div_op = compute_weighted_div(self.sd, ell, self.vec_rt1)
+        div_w = proj_l1_p2.T @ M_p2 @ div_op
 
         return div_s, asym, div_w
 
@@ -315,11 +348,11 @@ class SolverRT1_L1(Solver):
         proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
 
         if self.dim == 2:
-            M_p2 = self.p2.assemble_lumped_matrix(self.sd)
+            M_p2 = self.p2.assemble_mass_matrix(self.sd)
             r_interp = self.p2.interpolate(self.sd, f_r)
-            proj_l1_p2 = self.p2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
+            proj_l1_p2 = self.l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
         else:
-            M_p2 = self.vec_p2.assemble_lumped_matrix(self.sd)
+            M_p2 = self.vec_p2.assemble_mass_matrix(self.sd)
             r_interp = self.vec_p2.interpolate(self.sd, f_r)
             proj_l1_p2 = self.vec_l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
 
@@ -327,13 +360,7 @@ class SolverRT1_L1(Solver):
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
         r_for = proj_l1_p2.T @ M_p2 @ r_interp
 
-        # Assemble the boundary conditions
-        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
-        bd_faces = self.sd.tags["domain_boundary_faces"]
-        u_bc = self.dis_s.assemble_nat_bc(self.sd, u_ex, bd_faces)
-        r_bc = self.dis_w.assemble_nat_bc(self.sd, r_ex, bd_faces)
-
-        return u_bc, r_bc, u_for, r_for
+        return r_for, u_for
 
     def compute_err(self, s, w, u, r, data, data_pb):
         # compute the error
@@ -345,7 +372,7 @@ class SolverRT1_L1(Solver):
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         r_l2 = self.dis_r.proj_to_lagrange2(self.sd) @ r
         if self.dim == 2:
-            err_r = self.p2.error_l2(self.sd, r_l2, r_ex)
+            err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
         else:
             err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
 
@@ -360,23 +387,22 @@ class SolverRT1_P1(Solver):
         self.dis_r = self.p1 if self.dim == 2 else self.vec_p1
 
     def build_diff(self, data_pb, M_u, M_r):
-        proj_p1_p2 = self.dis_r.proj_to_pwQuadratics(self.sd)
+        ell = data_pb["ell"]
 
         if self.dim == 2:
             M_p2 = self.p2.assemble_mass_matrix(self.sd)
-            M_p1 = self.p1.assemble_mass_matrix(self.sd)
-
+            proj_p1_p2 = self.p1.proj_to_pwQuadratics(self.sd)
         else:
             M_p2 = self.vec_p2.assemble_mass_matrix(self.sd)
-            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
+            proj_p1_p2 = self.vec_p1.proj_to_pwQuadratics(self.sd)
 
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
         asym_op = self.dis_s.assemble_asym_matrix(self.sd)
         asym = proj_p1_p2.T @ M_p2 @ asym_op
 
-        div_w_op = self.dis_w.assemble_diff_matrix(self.sd)
-        div_w = M_p1 @ div_w_op
+        div_op = compute_weighted_div(self.sd, ell, self.vec_rt1)
+        div_w = proj_p1_p2.T @ M_p2 @ div_op
 
         return div_s, asym, div_w
 
@@ -394,13 +420,7 @@ class SolverRT1_P1(Solver):
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
         r_for = M_p1 @ r_interp
 
-        # Assemble the boundary conditions
-        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
-        bd_faces = self.sd.tags["domain_boundary_faces"]
-        u_bc = self.dis_s.assemble_nat_bc(self.sd, u_ex, bd_faces)
-        r_bc = self.dis_w.assemble_nat_bc(self.sd, r_ex, bd_faces)
-
-        return u_bc, r_bc, u_for, r_for
+        return r_for, u_for
 
     def compute_err(self, s, w, u, r, data, data_pb):
         # compute the error

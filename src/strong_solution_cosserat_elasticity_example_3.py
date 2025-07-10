@@ -616,7 +616,6 @@ def couple_stress_scaled(material_data, dim: int = 2):
 
 
 def rhs_scaled(material_data, dim: int = 2):
-
     m_lambda_s = material_data["lambda_s"]
     m_mu_s = material_data["mu_s"]
     m_kappa_s = material_data["kappa_s"]
@@ -1454,7 +1453,6 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
 
 
 def get_material_functions(material_data, dim: int = 2):
-
     m_lambda_s = material_data["lambda_s"]
     m_mu_s = material_data["mu_s"]
     m_kappa_s = material_data["kappa_s"]

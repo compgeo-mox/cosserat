@@ -4,7 +4,7 @@ import numpy as np
 sys.path.append("./src")
 
 from functions import *
-from solver import SolverBDM1_L1
+from solver import SolverRT1_L1
 
 
 if __name__ == "__main__":
@@ -15,12 +15,12 @@ if __name__ == "__main__":
         os.makedirs(folder)
 
     dim = 2
-    data_setup = setup(dim)
+    d_setup = setup(dim)
 
-    solver_class = SolverBDM1_L1
+    solver_class = SolverRT1_L1
     # Run the lumped case
-    print("solve lumped case7")
-    run_2d(solve_lumped, folder, "case7_lump.tex", data_setup, solver_class)
+    print("solve lumped rt1_l1_2d")
+    run_2d(solve_lumped, folder, "rt1_l1_2d_lump.tex", d_setup, solver_class)
     # Run the non-lumped case
-    # print("solve not lumped case7")
-    # run_2d(solve_not_lumped, folder, "case7_not_lump.tex", data_setup, solver_class)
+    print("solve not lumped rt1_l1_2d")
+    run_2d(solve_not_lumped, folder, "rt1_l1_2d_not_lump.tex", d_setup, solver_class)

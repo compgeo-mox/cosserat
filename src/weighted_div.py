@@ -72,6 +72,7 @@ def compute_weighted_div_scalar(
 
     # Interpolate to the P1 space
     grad_ell_P1 = VecP0.proj_to_pwLinears(sd) @ grad_ell_P0
+    # grad_ell_P1 = VecP1.interpolate(sd, grad_ell_func)
 
     if isinstance(stress_space, pg.BDM1):
         grad_ell_i = np.split(grad_ell_P1, sd.dim)

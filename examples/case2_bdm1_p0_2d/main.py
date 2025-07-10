@@ -14,12 +14,13 @@ if __name__ == "__main__":
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    data_setup = setup()
+    dim = 2
+    d_setup = setup(dim)
 
     solver_class = SolverBDM1_P0
     # Run the lumped case
-    print("solve lumped case2")
-    run_2d(solve_lumped, folder, "case2_lump.tex", data_setup, solver_class)
+    print("solve lumped bdm1_p0")
+    run_2d(solve_lumped, folder, "bdm1_p0_lump.tex", d_setup, solver_class)
     # Run the non-lumped case
-    print("solve not lumped case2")
-    run_2d(solve_not_lumped, folder, "case2_not_lump.tex", data_setup, solver_class)
+    print("solve not lumped bdm1_p0")
+    run_2d(solve_not_lumped, folder, "bdm1_p0_not_lump.tex", d_setup, solver_class)

@@ -28,7 +28,7 @@ def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
 
 def run_2d(func, folder, file_name, setup, solver_class):
     dim = 2
-    mesh_size = np.power(2.0, -np.arange(5, 5 + 1))  # 3, 3 + 5
+    mesh_size = np.power(2.0, -np.arange(3, 3 + 2))  # 3, 3 + 5
     errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
     print(errs)
     errs_latex = make_summary(errs)
@@ -114,31 +114,20 @@ def order(error, diam):
 
 
 def array_to_latex(arr):
-    latex_str = "\\begin{table}[h]\n\\centering\n"
-    latex_str += "\\begin{tabular}{" + "|c" * arr.shape[1] + "|}\n\\hline\n"
+    def disp(num, pos):
+        if pos % 2 == 0 and pos != 0:
+            return "{:.2f}".format(num)
+        else:
+            return "{:.2e}".format(num)
 
-    intestation = [
-        "$h$",
-        "$err_\sigma$",
-        "ord",
-        "$err_w$",
-        "ord",
-        "$err_u$",
-        "ord",
-        "$err_r$",
-        "ord",
-        "$dofs_u$",
-        "$dofs_r$",
-    ]
-
-    formatted_rows = [" & ".join("{:.2e}".format(num) for num in row) for row in arr]
-
-    latex_str += " & ".join(intestation)
-    latex_str += " \\\\\n\\hline\n"
-    latex_str += " \\\\\n\\hline\n".join(formatted_rows)
-    latex_str += " \\\\\n\\hline\n\\end{tabular}\n\\end{table}"
-
-    return latex_str.replace("-1.00e+00", "-")
+    latex_str = (
+        "& "
+        + " \\\\ \n& ".join(
+            [" & ".join(disp(num, pos) for pos, num in enumerate(row)) for row in arr]
+        )
+        + " \\\\"
+    )
+    return latex_str.replace("-1.00", "-")
 
 
 def make_summary(errs):

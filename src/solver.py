@@ -49,6 +49,72 @@ class Solver:
                 pp.LineFracture(np.array([[0, 2 / 3], [2 / 3, 2 / 3]])),
                 pp.LineFracture(np.array([[0, 1], [0, 1]])),
             ]
+        else:
+            fracs = [
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [1 / 3, 1 / 3, 1 / 3, 1 / 3],
+                            [0, 1 / 3, 1 / 3, 0],
+                            [0, 0, 1 / 3, 1 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [0, 1 / 3, 1 / 3, 0],
+                            [1 / 3, 1 / 3, 1 / 3, 1 / 3],
+                            [0, 0, 1 / 3, 1 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [0, 1 / 3, 1 / 3, 0],
+                            [0, 0, 1 / 3, 1 / 3],
+                            [1 / 3, 1 / 3, 1 / 3, 1 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [2 / 3, 2 / 3, 2 / 3, 2 / 3],
+                            [0, 2 / 3, 2 / 3, 0],
+                            [0, 0, 2 / 3, 2 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [0, 2 / 3, 2 / 3, 0],
+                            [2 / 3, 2 / 3, 2 / 3, 2 / 3],
+                            [0, 0, 2 / 3, 2 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [0, 2 / 3, 2 / 3, 0],
+                            [0, 0, 2 / 3, 2 / 3],
+                            [2 / 3, 2 / 3, 2 / 3, 2 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [0, 1, 1, 0],
+                            [0, 1, 1, 0],
+                            [0, 0, 1, 1],
+                        ]
+                    )
+                ),
+            ]
 
         self.sd = pg.unit_grid(
             self.dim,
@@ -225,18 +291,6 @@ class SolverBDM1_P0(Solver):
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         err_r = self.dis_r.error_l2(self.sd, r, r_ex)
 
-        u_ex_int = self.dis_u.interpolate(self.sd, u_ex)
-        proj_r = self.dis_r.eval_at_cell_centers(self.sd)
-        r_ex_int = proj_r @ self.dis_r.interpolate(self.sd, r_ex)
-        r = proj_r @ r
-
-        proj_u = self.vec_p0.eval_at_cell_centers(self.sd)
-        u = (proj_u @ u).reshape((2, -1))
-        u = np.vstack((u, np.zeros(u.shape[1])))
-
-        u_ex_int = (proj_u @ u_ex_int).reshape((2, -1))
-        u_ex_int = np.vstack((u_ex_int, np.zeros(u_ex_int.shape[1])))
-
         return err_s, err_w, err_u, err_r
 
 
@@ -298,16 +352,6 @@ class SolverBDM1_L1(Solver):
             err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
         else:
             err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
-
-        u_ex_int = self.dis_u.interpolate(self.sd, u_ex)
-        r_ex_int = self.dis_r.interpolate(self.sd, r_ex)
-
-        proj_u = self.vec_p0.eval_at_cell_centers(self.sd)
-        u = (proj_u @ u).reshape((2, -1))
-        u = np.vstack((u, np.zeros(u.shape[1])))
-
-        u_ex_int = (proj_u @ u_ex_int).reshape((2, -1))
-        u_ex_int = np.vstack((u_ex_int, np.zeros(u_ex_int.shape[1])))
 
         return err_s, err_w, err_u, err_r
 

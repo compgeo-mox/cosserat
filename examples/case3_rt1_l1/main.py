@@ -15,18 +15,22 @@ if __name__ == "__main__":
         os.makedirs(folder)
 
     solver_class = SolverRT1_L1
-    dims = [2, 3]
+    dims = [2]
+    alphas_betas = [(0, 1), (1, 0)]
 
     run = {2: run_2d, 3: run_3d}
     for dim in dims:
-        d_setup = setup(dim)
+        for alpha, beta in alphas_betas:
+            d_setup = setup(dim, alpha, beta)
 
-        # Run the lumped case
-        file_name = "rt1_l1_" + str(dim) + "d_lump.tex"
-        print("solve " + file_name)
-        run[dim](solve_lumped, folder, file_name, d_setup, solver_class)
+            name = "rt1_l1_" + str(dim) + "d_alpha_" + str(alpha) + "_beta_" + str(beta)
 
-        # Run the non-lumped case
-        file_name = "rt1_l1_" + str(dim) + "d.tex"
-        print("solve " + file_name)
-        run[dim](solve_not_lumped, folder, file_name, d_setup, solver_class)
+            # Run the lumped case
+            file_name = name + "_lump.tex"
+            print("solve " + file_name)
+            run[dim](solve_lumped, folder, file_name, d_setup, solver_class)
+
+            # Run the non-lumped case
+            file_name = name + ".tex"
+            print("solve " + file_name)
+            run[dim](solve_not_lumped, folder, file_name, d_setup, solver_class)

@@ -50,7 +50,7 @@ def run_3d(func, folder, file_name, setup, solver_class):
         file.write(errs_latex)
 
 
-def setup(dim):
+def setup(dim, alpha=0, beta=1):
     key = "cosserat"
 
     # return the exact solution and related rhs
@@ -63,6 +63,8 @@ def setup(dim):
         "lambda_o": lambda_,
         "mu_o": mu,
         "kappa_o": kappa,
+        "alpha": alpha,
+        "beta": beta,
     }
 
     def stress(pt):
@@ -102,7 +104,7 @@ def setup(dim):
         "r_ex": rotation,
         "f_r": rhs_scaled_r,
         "f_u": rhs_scaled_u,
-        "ell": lambda pt: ss.gamma_s(dim)(*pt),
+        "ell": lambda pt: ss.gamma_s(param, dim)(*pt),
     }
 
     data = {pp.PARAMETERS: {key: {"mu": mu, "lambda": lambda_, "mu_c": kappa}}}

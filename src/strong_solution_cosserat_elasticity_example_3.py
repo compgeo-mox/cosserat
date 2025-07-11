@@ -1,9 +1,11 @@
 import numpy as np
 
 
-def gamma_s(dim: int = 2):
+def gamma_s(material_data, dim: int = 2):
+    alpha = material_data["alpha"]
+    beta = material_data["beta"]
     if dim == 2:
-        return lambda x, y, z: np.min(
+        return lambda x, y, z: alpha + beta * np.min(
             [
                 np.ones_like(x),
                 np.max(
@@ -17,7 +19,7 @@ def gamma_s(dim: int = 2):
             axis=0,
         )
     else:
-        return lambda x, y, z: np.min(
+        return lambda x, y, z: alpha + beta * np.min(
             [
                 np.ones_like(x),
                 np.max(
@@ -32,9 +34,10 @@ def gamma_s(dim: int = 2):
         )
 
 
-def grad_gamma_s(dim: int = 2):
+def grad_gamma_s(material_data, dim: int = 2):
+    beta = material_data["beta"]
     if dim == 2:
-        return lambda x, y, z: np.array(
+        return lambda x, y, z: beta * np.array(
             [
                 np.where(
                     np.logical_or(
@@ -73,7 +76,7 @@ def grad_gamma_s(dim: int = 2):
             ]
         )
     else:
-        return lambda x, y, z: np.array(
+        return lambda x, y, z: beta * np.array(
             [
                 np.where(
                     np.logical_or.reduce(
@@ -139,9 +142,11 @@ def grad_gamma_s(dim: int = 2):
         )
 
 
-def gamma_eval(x, y, z, dim: int = 2):
+def gamma_eval(material_data, x, y, z, dim: int = 2):
+    alpha = material_data["alpha"]
+    beta = material_data["beta"]
     if dim == 2:
-        return np.min(
+        return alpha + beta * np.min(
             [
                 np.ones_like(x),
                 np.max(
@@ -155,7 +160,7 @@ def gamma_eval(x, y, z, dim: int = 2):
             axis=0,
         )
     else:
-        return np.min(
+        return alpha + beta * np.min(
             [
                 np.ones_like(x),
                 np.max(
@@ -170,9 +175,10 @@ def gamma_eval(x, y, z, dim: int = 2):
         )
 
 
-def grad_gamma_eval(x, y, z, dim: int = 2):
+def grad_gamma_eval(material_data, x, y, z, dim: int = 2):
+    beta = material_data["beta"]
     if dim == 2:
-        return np.array(
+        return beta * np.array(
             [
                 np.where(
                     np.logical_or(
@@ -211,7 +217,7 @@ def grad_gamma_eval(x, y, z, dim: int = 2):
             ]
         )
     else:
-        return np.array(
+        return beta * np.array(
             [
                 np.where(
                     np.logical_or.reduce(
@@ -528,7 +534,7 @@ def couple_stress_scaled(material_data, dim: int = 2):
     m_mu_o = material_data["mu_o"]
     m_kappa_o = material_data["kappa_o"]
     if dim == 2:
-        return lambda x, y, z: gamma_eval(x, y, z, dim) * np.array(
+        return lambda x, y, z: gamma_eval(material_data, x, y, z, dim) * np.array(
             [
                 [
                     np.pi
@@ -543,7 +549,7 @@ def couple_stress_scaled(material_data, dim: int = 2):
             ]
         )
     else:
-        return lambda x, y, z: gamma_eval(x, y, z, dim) * np.array(
+        return lambda x, y, z: gamma_eval(material_data, x, y, z, dim) * np.array(
             [
                 [
                     -(
@@ -667,18 +673,18 @@ def rhs_scaled(material_data, dim: int = 2):
                 * (m_kappa_o + m_mu_o)
                 * np.sin(np.pi * x)
                 * np.sin(np.pi * y)
-                * (gamma_eval(x, y, z, dim) ** 2)
+                * (gamma_eval(material_data, x, y, z, dim) ** 2)
                 + 2
                 * np.pi
                 * (m_kappa_o + m_mu_o)
-                * gamma_eval(x, y, z, dim)
+                * gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.cos(np.pi * y)
                     * np.sin(np.pi * x)
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     + np.cos(np.pi * x)
                     * np.sin(np.pi * y)
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
             ]
         )
@@ -815,7 +821,7 @@ def rhs_scaled(material_data, dim: int = 2):
                 - 4 * (x**2) * y * m_kappa_s * np.sin(np.pi * z)
                 - 4 * x * m_kappa_s * np.sin(np.pi * y) * np.sin(np.pi * z)
                 + 4 * (x**2) * m_kappa_s * np.sin(np.pi * y) * np.sin(np.pi * z)
-                + gamma_eval(x, y, z, dim)
+                + gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.pi
                     * (
@@ -827,7 +833,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         * np.sin(np.pi * y)
                     )
                     * np.sin(np.pi * z)
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + np.pi
                     * np.sin(np.pi * y)
                     * (
@@ -838,7 +844,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         * (m_kappa_o + m_mu_o)
                         * np.sin(np.pi * z)
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - (
                         2
                         * (m_lambda_o + 2 * m_mu_o)
@@ -852,7 +858,7 @@ def rhs_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * y) * np.sin(np.pi * z)
                         )
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + 2
                     * np.pi
                     * (
@@ -860,7 +866,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         - (-1 + x) * x * (m_kappa_o + m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * y)
-                    * grad_gamma_eval(x, y, z, dim)[2]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[2]
                     + 2
                     * np.pi
                     * (
@@ -868,7 +874,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         - (-1 + x) * x * (m_kappa_o + m_mu_o) * np.cos(np.pi * y)
                     )
                     * np.sin(np.pi * z)
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     - 2
                     * (
                         (-1 + 2 * x)
@@ -882,7 +888,7 @@ def rhs_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * y) * np.sin(np.pi * z)
                         )
                     )
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
                 -2 * y * m_kappa_s * np.sin(np.pi * x)
                 + 2 * (y**2) * m_kappa_s * np.sin(np.pi * x)
@@ -894,7 +900,7 @@ def rhs_scaled(material_data, dim: int = 2):
                 + 4 * x * (y**2) * m_kappa_s * np.sin(np.pi * z)
                 - 4 * y * m_kappa_s * np.sin(np.pi * x) * np.sin(np.pi * z)
                 + 4 * (y**2) * m_kappa_s * np.sin(np.pi * x) * np.sin(np.pi * z)
-                + gamma_eval(x, y, z, dim)
+                + gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.pi
                     * (
@@ -906,7 +912,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         * np.sin(np.pi * x)
                     )
                     * np.sin(np.pi * z)
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + np.pi
                     * np.sin(np.pi * x)
                     * (
@@ -917,7 +923,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         * (m_kappa_o + m_mu_o)
                         * np.sin(np.pi * z)
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - (
                         2
                         * (m_lambda_o + 2 * m_mu_o)
@@ -931,7 +937,7 @@ def rhs_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * x) * np.sin(np.pi * z)
                         )
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + 2
                     * np.pi
                     * (
@@ -939,7 +945,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         - (-1 + y) * y * (m_kappa_o + m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * x)
-                    * grad_gamma_eval(x, y, z, dim)[2]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[2]
                     - 2
                     * (
                         (-1 + 2 * x)
@@ -954,7 +960,7 @@ def rhs_scaled(material_data, dim: int = 2):
                             * np.sin(np.pi * z)
                         )
                     )
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     + 2
                     * np.pi
                     * (
@@ -962,7 +968,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         + (-1 + x) * x * (m_kappa_o - m_mu_o) * np.cos(np.pi * y)
                     )
                     * np.sin(np.pi * z)
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
                 2 * z * m_kappa_s * np.sin(np.pi * x)
                 - 4 * y * z * m_kappa_s * np.sin(np.pi * x)
@@ -974,7 +980,7 @@ def rhs_scaled(material_data, dim: int = 2):
                 - 4 * x * (z**2) * m_kappa_s * np.sin(np.pi * y)
                 - 4 * z * m_kappa_s * np.sin(np.pi * x) * np.sin(np.pi * y)
                 + 4 * (z**2) * m_kappa_s * np.sin(np.pi * x) * np.sin(np.pi * y)
-                + gamma_eval(x, y, z, dim)
+                + gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.pi
                     * (
@@ -986,7 +992,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         * np.sin(np.pi * x)
                     )
                     * np.sin(np.pi * y)
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + np.pi
                     * np.sin(np.pi * x)
                     * (
@@ -997,7 +1003,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         * (m_kappa_o + m_mu_o)
                         * np.sin(np.pi * y)
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - (
                         2
                         * (m_lambda_o + 2 * m_mu_o)
@@ -1011,7 +1017,7 @@ def rhs_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * x) * np.sin(np.pi * y)
                         )
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - 2
                     * (
                         (-1 + 2 * x)
@@ -1024,7 +1030,7 @@ def rhs_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * y) * m_lambda_o * np.sin(np.pi * z)
                         )
                     )
-                    * grad_gamma_eval(x, y, z, dim)[2]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[2]
                     + 2
                     * np.pi
                     * (
@@ -1032,7 +1038,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         + (-1 + y) * y * (m_kappa_o - m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * x)
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     + 2
                     * np.pi
                     * (
@@ -1040,7 +1046,7 @@ def rhs_scaled(material_data, dim: int = 2):
                         + (-1 + x) * x * (m_kappa_o - m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * y)
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
             ]
         )
@@ -1221,27 +1227,27 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                 2
                 * np.pi
                 * (m_mu_o + m_kappa_o)
-                * gamma_eval(x, y, z, dim)
+                * gamma_eval(material_data, x, y, z, dim)
                 * (
                     -(
                         np.pi
                         * np.sin(np.pi * x)
                         * np.sin(np.pi * y)
-                        * gamma_eval(x, y, z, dim)
+                        * gamma_eval(material_data, x, y, z, dim)
                     )
                     + np.cos(np.pi * y)
                     * np.sin(np.pi * x)
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     + np.cos(np.pi * x)
                     * np.sin(np.pi * y)
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
             ]
         )
     else:
         return lambda x, y, z: np.array(
             [
-                gamma_eval(x, y, z, dim)
+                gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.pi
                     * (
@@ -1253,7 +1259,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         * np.sin(np.pi * y)
                     )
                     * np.sin(np.pi * z)
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + np.pi
                     * np.sin(np.pi * y)
                     * (
@@ -1264,7 +1270,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         * (m_kappa_o + m_mu_o)
                         * np.sin(np.pi * z)
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - (
                         2
                         * (m_lambda_o + 2 * m_mu_o)
@@ -1278,7 +1284,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * y) * np.sin(np.pi * z)
                         )
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + 2
                     * np.pi
                     * (
@@ -1286,7 +1292,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         - (-1 + x) * x * (m_kappa_o + m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * y)
-                    * grad_gamma_eval(x, y, z, dim)[2]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[2]
                     + 2
                     * np.pi
                     * (
@@ -1294,7 +1300,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         - (-1 + x) * x * (m_kappa_o + m_mu_o) * np.cos(np.pi * y)
                     )
                     * np.sin(np.pi * z)
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     - 2
                     * (
                         (-1 + 2 * x)
@@ -1308,9 +1314,9 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * y) * np.sin(np.pi * z)
                         )
                     )
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
-                gamma_eval(x, y, z, dim)
+                gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.pi
                     * (
@@ -1322,7 +1328,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         * np.sin(np.pi * x)
                     )
                     * np.sin(np.pi * z)
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + np.pi
                     * np.sin(np.pi * x)
                     * (
@@ -1333,7 +1339,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         * (m_kappa_o + m_mu_o)
                         * np.sin(np.pi * z)
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - (
                         2
                         * (m_lambda_o + 2 * m_mu_o)
@@ -1347,7 +1353,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * x) * np.sin(np.pi * z)
                         )
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + 2
                     * np.pi
                     * (
@@ -1355,7 +1361,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         - (-1 + y) * y * (m_kappa_o + m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * x)
-                    * grad_gamma_eval(x, y, z, dim)[2]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[2]
                     - 2
                     * (
                         (-1 + 2 * x)
@@ -1370,7 +1376,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                             * np.sin(np.pi * z)
                         )
                     )
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     + 2
                     * np.pi
                     * (
@@ -1378,9 +1384,9 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         + (-1 + x) * x * (m_kappa_o - m_mu_o) * np.cos(np.pi * y)
                     )
                     * np.sin(np.pi * z)
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
-                gamma_eval(x, y, z, dim)
+                gamma_eval(material_data, x, y, z, dim)
                 * (
                     np.pi
                     * (
@@ -1392,7 +1398,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         * np.sin(np.pi * x)
                     )
                     * np.sin(np.pi * y)
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     + np.pi
                     * np.sin(np.pi * x)
                     * (
@@ -1403,7 +1409,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         * (m_kappa_o + m_mu_o)
                         * np.sin(np.pi * y)
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - (
                         2
                         * (m_lambda_o + 2 * m_mu_o)
@@ -1417,7 +1423,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * x) * np.sin(np.pi * y)
                         )
                     )
-                    * gamma_eval(x, y, z, dim)
+                    * gamma_eval(material_data, x, y, z, dim)
                     - 2
                     * (
                         (-1 + 2 * x)
@@ -1430,7 +1436,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                             + (-1 + 2 * y) * m_lambda_o * np.sin(np.pi * z)
                         )
                     )
-                    * grad_gamma_eval(x, y, z, dim)[2]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[2]
                     + 2
                     * np.pi
                     * (
@@ -1438,7 +1444,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         + (-1 + y) * y * (m_kappa_o - m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * x)
-                    * grad_gamma_eval(x, y, z, dim)[1]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[1]
                     + 2
                     * np.pi
                     * (
@@ -1446,7 +1452,7 @@ def couple_stress_divergence_scaled(material_data, dim: int = 2):
                         + (-1 + x) * x * (m_kappa_o - m_mu_o) * np.cos(np.pi * z)
                     )
                     * np.sin(np.pi * y)
-                    * grad_gamma_eval(x, y, z, dim)[0]
+                    * grad_gamma_eval(material_data, x, y, z, dim)[0]
                 ),
             ]
         )
@@ -1486,8 +1492,8 @@ def get_material_functions(material_data, dim: int = 2):
         "lambda_o": f_lambda_o,
         "mu_o": f_mu_o,
         "kappa_o": f_kappa_o,
-        "l": gamma_s(dim),
-        "grad_l": grad_gamma_s(dim),
+        "l": lambda dim: gamma_s(material_data, dim),
+        "grad_l": lambda dim: grad_gamma_s(material_data, dim),
     }
 
     return m_functions

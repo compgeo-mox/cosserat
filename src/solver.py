@@ -157,11 +157,9 @@ class Solver:
         rhs[split_idx[1] : split_idx[2]] -= u_for
         rhs[split_idx[2] :] -= r_for
 
-        try:
-            ls = pg.LinearSystem(spp, rhs)
-            x = ls.solve()
-        except:
-            x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
+        # ls = pg.LinearSystem(spp, rhs)
+        # x = ls.solve()
+        x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
 
         s, w, u, r = np.split(x, split_idx)
 
@@ -214,11 +212,9 @@ class Solver:
         # solve the saddle point problem using bcgstab
         spp = B @ inv_ABT
 
-        try:
-            ls = pg.LinearSystem(spp, rhs)
-            x = ls.solve()
-        except:
-            x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
+        # ls = pg.LinearSystem(spp, rhs)
+        # x = ls.solve()
+        x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
 
         u, r = np.split(x, split_idx)
         s, w = np.split(inv_ABT @ x, [self.dis_s.ndof(self.sd)])

@@ -212,9 +212,9 @@ class Solver:
         # solve the saddle point problem using bcgstab
         spp = B @ inv_ABT
 
-        # ls = pg.LinearSystem(spp, rhs)
-        # x = ls.solve()
-        x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
+        ls = pg.LinearSystem(spp, rhs)
+        x = ls.solve()
+        # x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
 
         u, r = np.split(x, split_idx)
         s, w = np.split(inv_ABT @ x, [self.dis_s.ndof(self.sd)])

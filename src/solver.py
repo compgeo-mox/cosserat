@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import scipy.sparse as sps
+from sksparse.cholmod import cholesky
 
 import porepy as pp
 import pygeon as pg
@@ -212,8 +213,11 @@ class Solver:
         # solve the saddle point problem using bcgstab
         spp = B @ inv_ABT
 
-        ls = pg.LinearSystem(spp, rhs)
-        x = ls.solve()
+        ls = cholesky(spp.tocsc())
+        x = ls.solve_A(rhs)
+
+        # ls = pg.LinearSystem(spp, rhs)
+        # x = ls.solve()
         # x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
 
         u, r = np.split(x, split_idx)

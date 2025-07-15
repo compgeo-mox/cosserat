@@ -15,7 +15,7 @@ if __name__ == "__main__":
         os.makedirs(folder)
 
     solver_class = SolverBDM1_L1
-    dims = [2]
+    dims = [2, 3]
     alphas_betas = [(0, 1), (1, 0)]
 
     run = {2: run_2d, 3: run_3d}

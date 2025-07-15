@@ -509,10 +509,6 @@ class SolverRT1_P1(Solver):
         return err_s, err_w, err_u, err_r
 
     def create_grid(self, mesh_size, folder):
-        mesh_file_name = os.path.join(folder, "grid.msh")
-        self.sd = pg.unit_grid(
-            self.dim, mesh_size, as_mdg=False, file_name=mesh_file_name
-        )
-        self.sd.compute_geometry()
+        super().create_grid(mesh_size, folder)
         self.sd = pg.barycentric_split(self.sd)
         self.sd.compute_geometry()

@@ -48,7 +48,7 @@ class Solver:
                 pp.LineFracture(np.array([[0, 1 / 3], [1 / 3, 1 / 3]])),
                 pp.LineFracture(np.array([[2 / 3, 2 / 3], [0, 2 / 3]])),
                 pp.LineFracture(np.array([[0, 2 / 3], [2 / 3, 2 / 3]])),
-                pp.LineFracture(np.array([[0, 1], [0, 1]])),
+                pp.LineFracture(np.array([[1 / 3, 2 / 3], [1 / 3, 2 / 3]])),
             ]
         else:
             fracs = [
@@ -109,9 +109,27 @@ class Solver:
                 pp.PlaneFracture(
                     np.array(
                         [
-                            [0, 1, 1, 0],
-                            [0, 1, 1, 0],
-                            [0, 0, 1, 1],
+                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
+                            [0, 0, 2 / 3, 1 / 3],
+                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [0, 0, 2 / 3, 1 / 3],
+                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
+                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
+                        ]
+                    )
+                ),
+                pp.PlaneFracture(
+                    np.array(
+                        [
+                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
+                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
+                            [0, 0, 2 / 3, 1 / 3],
                         ]
                     )
                 ),

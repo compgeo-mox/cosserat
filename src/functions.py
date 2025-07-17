@@ -6,7 +6,7 @@ import strong_solution_cosserat_elasticity_example_3 as ss
 
 
 def solve_lumped(dim, mesh_size, folder, setup, solver_class):
-    print("solve_lumped for mesh_size", mesh_size)
+    print("solve_lumped for mesh_size: {:.2e}".format(mesh_size))
     data, data_pb, key = setup
 
     solver = solver_class(dim, key)
@@ -16,7 +16,7 @@ def solve_lumped(dim, mesh_size, folder, setup, solver_class):
 
 
 def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
-    print("solve_not_lumped for mesh_size", mesh_size)
+    print("solve_not_lumped for mesh_size: {:.2e}".format(mesh_size))
     data, data_pb, key = setup
 
     solver = solver_class(dim, key)
@@ -29,7 +29,14 @@ def solve_not_lumped(dim, mesh_size, folder, setup, solver_class):
 def run_2d(func, folder, file_name, setup, solver_class):
     dim = 2
     mesh_size = np.power(2.0, -np.arange(3, 3 + 5))
-    errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
+    errs = []
+    for h in mesh_size:
+        err = func(dim, h, folder, setup, solver_class)
+        print(np.array(err))
+        errs.append(err)
+    errs = np.vstack(errs)
+
+    print("\nSUMMARY:")
     print(errs)
     errs_latex = make_summary(errs)
 
@@ -40,8 +47,15 @@ def run_2d(func, folder, file_name, setup, solver_class):
 
 def run_3d(func, folder, file_name, setup, solver_class):
     dim = 3
-    mesh_size = [1 / 3, 2 / 9 , 4 / 27, 8 / 81]
-    errs = np.vstack([func(dim, h, folder, setup, solver_class) for h in mesh_size])
+    mesh_size = [1 / 3, 2 / 9, 4 / 27, 8 / 81]
+    errs = []
+    for h in mesh_size:
+        err = func(dim, h, folder, setup, solver_class)
+        print(np.array(err))
+        errs.append(err)
+    errs = np.vstack(errs)
+
+    print("\nSUMMARY:")
     print(errs)
     errs_latex = make_summary(errs)
 
@@ -134,7 +148,7 @@ def array_to_latex(arr):
         )
         + " \\\\"
     )
-    return latex_str.replace("-1.00", "-")
+    return latex_str.replace("-1.00", "   -")
 
 
 def make_summary(errs):

@@ -47,7 +47,7 @@ def run_2d(func, folder, file_name, setup, solver_class):
 
 def run_3d(func, folder, file_name, setup, solver_class):
     dim = 3
-    mesh_size = [1 / 3, 2 / 9, 4 / 27, 8 / 81]
+    mesh_size = [1 / 3, 2 / 9, 4 / 27]  # , 8 / 81]
     errs = []
     for h in mesh_size:
         err = func(dim, h, folder, setup, solver_class)

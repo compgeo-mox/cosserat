@@ -46,17 +46,15 @@ def compute_weighted_div_scalar(
     ell = L1.interpolate(sd, ell_func)
 
     div = stress_space.assemble_diff_matrix(sd)
-    ell_P1 = L1.proj_to_pwLinears(sd) @ ell
+    ell_Pwp = pg.proj_to_PwPolynomials(L1, sd, stress_space.poly_order) @ ell
 
     if isinstance(stress_space, pg.BDM1):
-        div = P0.proj_to_pwLinears(sd) @ div
-        term_1 = ell_P1[:, None] * div
+        div = P0.proj_to_higher_PwPolynomials(sd) @ div
 
     else:  # VecRT1
-        div = P1.proj_to_pwQuadratics(sd) @ div
-        ell_P2 = P1.proj_to_pwQuadratics(sd) @ ell_P1
+        div = P1.proj_to_higher_PwPolynomials(sd) @ div
 
-        term_1 = ell_P2[:, None] * div
+    term_1 = ell_Pwp[:, None] * div
 
     # Next, we compute term_1 = grad(ell) dot w
     # Interpolate grad ell on the P0 space
@@ -70,22 +68,15 @@ def compute_weighted_div_scalar(
             (-grad_ell_P0[sd.num_cells : sd.num_cells * 2], grad_ell_P0[: sd.num_cells])
         )
 
-    # Interpolate to the P1 space
-    grad_ell_P1 = VecP0.proj_to_pwLinears(sd) @ grad_ell_P0
-    # grad_ell_P1 = VecP1.interpolate(sd, grad_ell_func)
+    # Interpolate to the piecewise polynomial space that coincides with the stress space
+    grad_ell_Pwp = (
+        pg.proj_to_PwPolynomials(VecP0, sd, stress_space.poly_order) @ grad_ell_P0
+    )
 
-    if isinstance(stress_space, pg.BDM1):
-        grad_ell_i = np.split(grad_ell_P1, sd.dim)
-        dot_prod = sps.hstack([sps.diags_array(g_ell) for g_ell in grad_ell_i])
+    grad_ell_i = np.split(grad_ell_Pwp, sd.dim)
+    dot_prod = sps.hstack([sps.diags_array(g_ell) for g_ell in grad_ell_i])
 
-        term_2 = dot_prod @ stress_space.proj_to_VecPwLinears(sd)
-
-    else:  # VecRT1
-        grad_ell_P2 = VecP1.proj_to_pwQuadratics(sd) @ grad_ell_P1
-        grad_ell_i = np.split(grad_ell_P2, sd.dim)
-        dot_prod = sps.hstack([sps.diags_array(g_ell) for g_ell in grad_ell_i])
-
-        term_2 = dot_prod @ stress_space.proj_to_VecPwQuadratics(sd)
+    term_2 = dot_prod @ stress_space.proj_to_PwPolynomials(sd)
 
     return (term_1 + term_2).tocsc()
 
@@ -118,6 +109,6 @@ if __name__ == "__main__":
 
     # EXAMPLES
     B_bdm1_p1 = M1 @ div_bdm1
-    B_bdm1_l1 = L1.proj_to_pwLinears(sd).T @ ML1 @ div_bdm1
-    B_rt1_p1 = P1.proj_to_pwQuadratics(sd).T @ M2 @ div_rt1
-    B_rt1_l1 = L1.proj_to_pwLinears(sd).T @ B_rt1_p1
+    B_bdm1_l1 = L1.proj_to_PwPolynomials(sd).T @ ML1 @ div_bdm1
+    B_rt1_p1 = P1.proj_to_higher_PwPolynomials(sd).T @ M2 @ div_rt1
+    B_rt1_l1 = L1.proj_to_PwPolynomials(sd).T @ B_rt1_p1

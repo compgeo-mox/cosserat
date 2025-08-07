@@ -283,9 +283,9 @@ class SolverBDM1_P0(Solver):
         ell = data_pb["ell"]
 
         if self.dim == 2:
-            proj_p0 = self.p1.proj_to_pwConstants(self.sd)
+            proj_p0 = self.p1.proj_to_lower_PwPolynomials(self.sd)
         else:
-            proj_p0 = self.vec_p1.proj_to_pwConstants(self.sd)
+            proj_p0 = self.vec_p1.proj_to_lower_PwPolynomials(self.sd)
 
         # Build the differential matrices
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
@@ -334,7 +334,7 @@ class SolverBDM1_L1(Solver):
         else:
             M_p1 = self.vec_p1.assemble_lumped_matrix(self.sd)
 
-        proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
+        proj_l1 = self.dis_r.proj_to_PwPolynomials(self.sd)
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
         asym_op = self.dis_s.assemble_asym_matrix(self.sd, as_pwconstant=False)
@@ -356,7 +356,7 @@ class SolverBDM1_L1(Solver):
             M_p1 = self.vec_p1.assemble_lumped_matrix(self.sd)
             f_r_int = self.vec_p1.interpolate(self.sd, f_r)
 
-        proj_l1 = self.dis_r.proj_to_pwLinears(self.sd)
+        proj_l1 = self.dis_r.proj_to_PwPolynomials(self.sd)
 
         # Assemble the source terms
         r_for = proj_l1.T @ M_p1 @ f_r_int
@@ -372,11 +372,11 @@ class SolverBDM1_L1(Solver):
         err_s = self.dis_s.error_l2(self.sd, s, s_ex)
         err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
-        r_l2 = self.dis_r.proj_to_lagrange2(self.sd) @ r
+        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
         if self.dim == 2:
-            err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
+            err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
         else:
-            err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
+            err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
 
         return err_s, err_w, err_u, err_r
 
@@ -393,17 +393,14 @@ class SolverRT1_L1(Solver):
 
         if self.dim == 2:
             M_p2 = self.p2.assemble_mass_matrix(self.sd)
-            proj_p1_p2 = self.p1.proj_to_pwQuadratics(self.sd)
-            proj_l1_p1 = self.l1.proj_to_pwLinears(self.sd)
+            proj_l1_p2 = pg.proj_to_PwPolynomials(self.l1, self.sd, 2)
 
         else:
             M_p2 = self.vec_p2.assemble_mass_matrix(self.sd)
-            proj_p1_p2 = self.vec_p1.proj_to_pwQuadratics(self.sd)
-            proj_l1_p1 = self.vec_l1.proj_to_pwLinears(self.sd)
+            proj_l1_p2 = pg.proj_to_PwPolynomials(self.vec_l1, self.sd, 2)
 
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
-        proj_l1_p2 = proj_p1_p2 @ proj_l1_p1
         asym_op = self.dis_s.assemble_asym_matrix(self.sd)
         asym = proj_l1_p2.T @ M_p2 @ asym_op
 
@@ -414,16 +411,14 @@ class SolverRT1_L1(Solver):
 
     def build_bc_for(self, M_u, M_r, data_pb):
         f_u, f_r = data_pb["f_u"], data_pb["f_r"]
-        proj_l1_p2 = self.dis_r.proj_to_lagrange2(self.sd)
+        proj_l1_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2)
 
         if self.dim == 2:
             M_p2 = self.p2.assemble_mass_matrix(self.sd)
             r_interp = self.p2.interpolate(self.sd, f_r)
-            proj_l1_p2 = self.l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
         else:
             M_p2 = self.vec_p2.assemble_mass_matrix(self.sd)
             r_interp = self.vec_p2.interpolate(self.sd, f_r)
-            proj_l1_p2 = self.vec_l2.proj_to_pwQuadratics(self.sd) @ proj_l1_p2
 
         # Assemble the source terms
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
@@ -439,11 +434,11 @@ class SolverRT1_L1(Solver):
         err_s = self.dis_s.error_l2(self.sd, s, s_ex)
         err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
-        r_l2 = self.dis_r.proj_to_lagrange2(self.sd) @ r
+        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
         if self.dim == 2:
-            err_r = self.l2.error_l2(self.sd, r_l2, r_ex)
+            err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
         else:
-            err_r = self.vec_l2.error_l2(self.sd, r_l2, r_ex)
+            err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
 
         return err_s, err_w, err_u, err_r
 
@@ -460,10 +455,10 @@ class SolverRT1_P1(Solver):
 
         if self.dim == 2:
             M_p2 = self.p2.assemble_mass_matrix(self.sd)
-            proj_p1_p2 = self.p1.proj_to_pwQuadratics(self.sd)
+            proj_p1_p2 = pg.proj_to_PwPolynomials(self.p1, self.sd, 2)
         else:
             M_p2 = self.vec_p2.assemble_mass_matrix(self.sd)
-            proj_p1_p2 = self.vec_p1.proj_to_pwQuadratics(self.sd)
+            proj_p1_p2 = pg.proj_to_PwPolynomials(self.vec_p1, self.sd, 2)
 
         div_s = M_u @ self.dis_s.assemble_diff_matrix(self.sd)
 
@@ -478,16 +473,9 @@ class SolverRT1_P1(Solver):
     def build_bc_for(self, M_u, M_r, data_pb):
         f_u, f_r = data_pb["f_u"], data_pb["f_r"]
 
-        if self.dim == 2:
-            M_p1 = self.p1.assemble_mass_matrix(self.sd)
-            r_interp = self.p1.interpolate(self.sd, f_r)
-        else:
-            M_p1 = self.vec_p1.assemble_mass_matrix(self.sd)
-            r_interp = self.vec_p1.interpolate(self.sd, f_r)
-
         # Assemble the source terms
-        u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
-        r_for = M_p1 @ r_interp
+        u_for = self.dis_u.source_term(self.sd, f_u)
+        r_for = self.dis_r.source_term(self.sd, f_r)
 
         return r_for, u_for
 
@@ -500,7 +488,7 @@ class SolverRT1_P1(Solver):
         err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
 
-        r_p2 = self.dis_r.proj_to_pwQuadratics(self.sd) @ r
+        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
         if self.dim == 2:
             err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
         else:

@@ -271,6 +271,25 @@ class Solver:
 
         return M_s, M_w, M_u, M_r
 
+    def visualize_errors(self, s, w, u, r, s_ex, w_ex, u_ex, r_ex):
+        import porepy as pp
+
+        disc_sol = (s, w, u, r)
+        ex_sol = (s_ex, w_ex, u_ex, r_ex)
+        disc_list = (self.dis_s, self.dis_w, self.dis_u, self.dis_r)
+        errors = []
+
+        for sol, ex, disc in zip(disc_sol, ex_sol, disc_list):
+            err = disc.interpolate(self.sd, ex) - sol
+            err = disc.eval_at_cell_centers(self.sd) @ err
+
+            err = err.reshape((-1, self.sd.num_cells))
+            errors.append(err)
+
+        # rot_err = np.reshape(rot_err, (2, -1))
+        save = pp.Exporter(self.sd, "errors")
+        save.write_vtu(list(zip(("sigma", "omega", "displ", "rotation"), errors)))
+
 
 class SolverBDM1_P0(Solver):
     def create_family(self):
@@ -487,6 +506,8 @@ class SolverRT1_P1(Solver):
         err_s = self.dis_s.error_l2(self.sd, s, s_ex)
         err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
+
+        # self.visualize_errors(s, w, u, r, s_ex, w_ex, u_ex, r_ex)
 
         r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
         if self.dim == 2:

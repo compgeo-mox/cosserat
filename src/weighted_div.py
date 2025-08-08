@@ -72,6 +72,7 @@ def compute_weighted_div_scalar(
     grad_ell_Pwp = (
         pg.proj_to_PwPolynomials(VecP0, sd, stress_space.poly_order) @ grad_ell_P0
     )
+    # grad_ell_P1 = VecP1.interpolate(sd, grad_ell_func)
 
     grad_ell_i = np.split(grad_ell_Pwp, sd.dim)
     dot_prod = sps.hstack([sps.diags_array(g_ell) for g_ell in grad_ell_i])
@@ -83,10 +84,11 @@ def compute_weighted_div_scalar(
 
 if __name__ == "__main__":
     # Examples
-    dim = 3
+    dim = 2
 
     def ell(x):  # Function describing the length scale ell
         return np.max((x[0], 0.5))
+        # return x[0]
 
     bdm1 = pg.VecBDM1()
     rt1 = pg.VecRT1()

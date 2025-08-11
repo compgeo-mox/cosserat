@@ -271,6 +271,25 @@ class Solver:
 
         return M_s, M_w, M_u, M_r
 
+    def compute_err(self, s, w, u, r, data, data_pb):
+        # compute the error
+        s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
+        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
+
+        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
+        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
+        err_u = self.dis_u.error_l2(self.sd, u, u_ex)
+        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
+
+        if self.dim == 2:
+            err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
+        else:
+            err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
+
+        self.visualize_errors(s, w, u, r, s_ex, w_ex, u_ex, r_ex)
+
+        return err_s, err_w, err_u, err_r
+
     def visualize_errors(self, s, w, u, r, s_ex, w_ex, u_ex, r_ex):
         import porepy as pp
 
@@ -286,9 +305,12 @@ class Solver:
             err = err.reshape((-1, self.sd.num_cells))
             errors.append(err)
 
-        # rot_err = np.reshape(rot_err, (2, -1))
         save = pp.Exporter(self.sd, "errors")
-        save.write_vtu(list(zip(("sigma", "omega", "displ", "rotation"), errors)))
+        save.write_vtu(
+            list(zip(("sigma", "omega", "displacement", "rotation"), errors))
+        )
+
+        pass
 
 
 class SolverBDM1_P0(Solver):
@@ -383,22 +405,6 @@ class SolverBDM1_L1(Solver):
         u_for = M_u @ self.dis_u.interpolate(self.sd, f_u)
         return r_for, u_for
 
-    def compute_err(self, s, w, u, r, data, data_pb):
-        # compute the error
-        s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
-        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
-
-        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
-        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
-        err_u = self.dis_u.error_l2(self.sd, u, u_ex)
-        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
-        if self.dim == 2:
-            err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
-        else:
-            err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
-
-        return err_s, err_w, err_u, err_r
-
 
 class SolverRT1_L1(Solver):
     def create_family(self):
@@ -445,22 +451,6 @@ class SolverRT1_L1(Solver):
 
         return r_for, u_for
 
-    def compute_err(self, s, w, u, r, data, data_pb):
-        # compute the error
-        s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
-        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
-
-        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
-        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
-        err_u = self.dis_u.error_l2(self.sd, u, u_ex)
-        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
-        if self.dim == 2:
-            err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
-        else:
-            err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
-
-        return err_s, err_w, err_u, err_r
-
 
 class SolverRT1_P1(Solver):
     def create_family(self):
@@ -497,25 +487,6 @@ class SolverRT1_P1(Solver):
         r_for = self.dis_r.source_term(self.sd, f_r)
 
         return r_for, u_for
-
-    def compute_err(self, s, w, u, r, data, data_pb):
-        # compute the error
-        s_ex, w_ex = data_pb["s_ex"], data_pb["w_ex"]
-        u_ex, r_ex = data_pb["u_ex"], data_pb["r_ex"]
-
-        err_s = self.dis_s.error_l2(self.sd, s, s_ex)
-        err_w = self.dis_w.error_l2(self.sd, w, w_ex)
-        err_u = self.dis_u.error_l2(self.sd, u, u_ex)
-
-        # self.visualize_errors(s, w, u, r, s_ex, w_ex, u_ex, r_ex)
-
-        r_p2 = pg.proj_to_PwPolynomials(self.dis_r, self.sd, 2) @ r
-        if self.dim == 2:
-            err_r = self.p2.error_l2(self.sd, r_p2, r_ex)
-        else:
-            err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
-
-        return err_s, err_w, err_u, err_r
 
     def create_grid(self, mesh_size, folder):
         super().create_grid(mesh_size, folder)

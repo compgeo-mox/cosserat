@@ -1,6 +1,6 @@
 import numpy as np
 import sympy as sp
-
+from strong_solution_cosserat_elasticity_example_3 import gamma_s
 
 mu_s = mu_w = 1
 mu_cs = mu_cw = 0.1
@@ -9,10 +9,17 @@ lam_s = lam_w = 1
 
 def funcify(f, x, dim, ravel=True):
     lam_f = sp.lambdify(x, f, "numpy")
-    if ravel:
-        return lambda x: lam_f(*x[:dim]).ravel()
-    else:
-        return lambda x: lam_f(*x[:dim])
+    if dim == 2:
+        if ravel:
+            return lambda x, y, z: lam_f(x, y).ravel()
+        else:
+            return lambda x, y, z: lam_f(x, y)
+
+    else:  # dim == 3
+        if ravel:
+            return lambda x, y, z: lam_f(x, y, z).ravel()
+        else:
+            return lam_f
 
 
 def compile_funcs(dim, alpha=0):
@@ -83,6 +90,10 @@ def compile_funcs(dim, alpha=0):
         phi = ell * (x[0] - x[1]) * sp.sin(3 * sp.pi * x[0]) * sp.sin(3 * sp.pi * x[1])
         w = 2 * mu_w * sp.Matrix([phi, phi])
         div_ell_w = sum([sp.diff(ell * w_i, x_i) for (w_i, x_i) in zip(w, x)])
+        lam_w = funcify(w, x, dim)
+
+        func_dict["w"] = lambda x, y, z: [lam_w(x, y, z)]
+
     else:
         phi = (
             ell
@@ -110,7 +121,7 @@ def compile_funcs(dim, alpha=0):
                 for i in range(3)
             ]
         )
-    func_dict["w"] = funcify(w, x, dim)
+        func_dict["w"] = funcify(w, x, dim)
 
     # Cauchy stress
     tau = grad_u + asym_r
@@ -123,14 +134,14 @@ def compile_funcs(dim, alpha=0):
     div_sigma = sp.Matrix(
         [
             sum([sp.diff(s_ij, x_i) for (s_ij, x_i) in zip(sigma[i, :], x)])
-            for i in range(2)
+            for i in range(dim)
         ]
     )
 
     func_dict["s"] = funcify(sigma, x, dim, False)
 
     # Right-hand sides
-    rhs_u = -div_sigma
+    rhs_u = div_sigma
 
     if dim == 2:
         rhs_w = w / (2 * mu_w) + ell * grad_r
@@ -138,8 +149,9 @@ def compile_funcs(dim, alpha=0):
         rhs_r = sigma[1, 0] - sigma[0, 1] - div_ell_w
         rhs_ur = sp.Matrix([*rhs_u, rhs_r])
 
-    func_dict["rhs_w"] = funcify(rhs_w, x, dim, False)
-    func_dict["rhs_ur"] = funcify(rhs_ur, x, dim)
+        rhs_w_lam = funcify(rhs_w, x, dim, False)
+        func_dict["rhs_w"] = lambda x, y, z: [*rhs_w_lam(x, y, z).ravel(), 0]
+        func_dict["rhs_ur"] = funcify(rhs_ur, x, dim)
     return func_dict
 
 
@@ -160,12 +172,17 @@ def couple_stress_scaled(param, dim):
     return funcs[dim, alpha]["w"]
 
 
+def displacement(param, dim):
+    alpha = param["alpha"]
+    return funcs[dim, alpha]["u"]
+
+
 def rotation(param, dim):
     alpha = param["alpha"]
     return funcs[dim, alpha]["r"]
 
 
-def body_force(param, dim):
+def rhs_couple_stress(param, dim):
     alpha = param["alpha"]
     return funcs[dim, alpha]["rhs_w"]
 

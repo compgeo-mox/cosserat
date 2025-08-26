@@ -2,7 +2,7 @@ import numpy as np
 import porepy as pp
 import copy
 
-import strong_solution_cosserat_elasticity_example_3 as ss
+import strong_solution_regular as ss
 
 
 def solve_lumped(dim, mesh_size, folder, setup, solver_class):
@@ -47,7 +47,7 @@ def run_2d(func, folder, file_name, setup, solver_class):
 
 def run_3d(func, folder, file_name, setup, solver_class):
     dim = 3
-    mesh_size = [1 / 3, 2 / 9, 4 / 27]  # , 8 / 81]
+    mesh_size = [1 / 3, 1 / 6, 1 / 9, 1 / 12]
     errs = []
     for h in mesh_size:
         err = func(dim, h, folder, setup, solver_class)
@@ -90,38 +90,16 @@ def setup(dim, alpha=0, beta=1):
     def couple_stress_scaled(pt):
         s = ss.couple_stress_scaled(param, dim)(*pt)
         if dim == 2:
-            s = np.hstack((s[0], 0))
+            s = np.hstack((s, 0))
         return s
-
-    def rotation(pt):
-        r = ss.rotation(param, dim)(*pt)
-        if dim == 2:
-            r = r[0]
-        return r
-
-    def rhs_scaled_u(pt):
-        rhs = ss.rhs_scaled(param, dim)(*pt)
-        if dim == 2:
-            rhs = rhs[:2]
-        else:
-            rhs = rhs[:3]
-        return rhs
-
-    def rhs_scaled_r(pt):
-        rhs = ss.rhs_scaled(param, dim)(*pt)
-        if dim == 2:
-            rhs = rhs[-1]
-        else:
-            rhs = rhs[-3:]
-        return rhs
 
     data_pb = {
         "s_ex": stress,
         "w_ex": couple_stress_scaled,
         "u_ex": lambda pt: ss.displacement(param, dim)(*pt),
-        "r_ex": rotation,
-        "f_r": rhs_scaled_r,
-        "f_u": rhs_scaled_u,
+        "r_ex": lambda pt: ss.rotation(param, dim)(*pt),
+        "f_r": lambda pt: ss.rhs_scaled_r(param, dim)(*pt),
+        "f_u": lambda pt: ss.rhs_scaled_u(param, dim)(*pt),
         "ell": lambda pt: ss.gamma_s(param, dim)(*pt),
     }
 

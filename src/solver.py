@@ -44,105 +44,35 @@ class Solver:
 
         if self.dim == 2:
             fracs = [
-                pp.LineFracture(np.array([[1 / 3, 1 / 3], [0, 1 / 3]])),
-                pp.LineFracture(np.array([[0, 1 / 3], [1 / 3, 1 / 3]])),
-                pp.LineFracture(np.array([[2 / 3, 2 / 3], [0, 2 / 3]])),
-                pp.LineFracture(np.array([[0, 2 / 3], [2 / 3, 2 / 3]])),
-                pp.LineFracture(np.array([[1 / 3, 2 / 3], [1 / 3, 2 / 3]])),
-            ]
-        else:
-            fracs = [
-                pp.PlaneFracture(
+                pp.LineFracture(
                     np.array(
                         [
-                            [1 / 3, 1 / 3, 1 / 3, 1 / 3],
-                            [0, 1 / 3, 1 / 3, 0],
-                            [0, 0, 1 / 3, 1 / 3],
+                            [1 / 3, 1 / 3],
+                            [0, 1],
                         ]
                     )
                 ),
-                pp.PlaneFracture(
+                pp.LineFracture(
                     np.array(
                         [
-                            [0, 1 / 3, 1 / 3, 0],
-                            [1 / 3, 1 / 3, 1 / 3, 1 / 3],
-                            [0, 0, 1 / 3, 1 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [0, 1 / 3, 1 / 3, 0],
-                            [0, 0, 1 / 3, 1 / 3],
-                            [1 / 3, 1 / 3, 1 / 3, 1 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [2 / 3, 2 / 3, 2 / 3, 2 / 3],
-                            [0, 2 / 3, 2 / 3, 0],
-                            [0, 0, 2 / 3, 2 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [0, 2 / 3, 2 / 3, 0],
-                            [2 / 3, 2 / 3, 2 / 3, 2 / 3],
-                            [0, 0, 2 / 3, 2 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [0, 2 / 3, 2 / 3, 0],
-                            [0, 0, 2 / 3, 2 / 3],
-                            [2 / 3, 2 / 3, 2 / 3, 2 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
-                            [0, 0, 2 / 3, 1 / 3],
-                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [0, 0, 2 / 3, 1 / 3],
-                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
-                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
-                        ]
-                    )
-                ),
-                pp.PlaneFracture(
-                    np.array(
-                        [
-                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
-                            [1 / 3, 2 / 3, 2 / 3, 1 / 3],
-                            [0, 0, 2 / 3, 1 / 3],
+                            [2 / 3, 2 / 3],
+                            [0, 1],
                         ]
                     )
                 ),
             ]
 
-        self.sd = pg.unit_grid(
-            self.dim,
-            mesh_size,
-            as_mdg=False,
-            file_name=mesh_file_name,
-            fractures=fracs,
-            constraints=np.arange(len(fracs)),
-        )
+            self.sd = pg.unit_grid(
+                self.dim,
+                mesh_size,
+                as_mdg=False,
+                file_name=mesh_file_name,
+                fractures=fracs,
+                constraints=np.arange(len(fracs)),
+            )
+        else:
+            self.sd = pg.unit_grid(self.dim, mesh_size, as_mdg=False, structured=True)
+
         self.sd.compute_geometry()
 
     def solve_problem(self, data, data_pb, tol=1e-6):
@@ -165,16 +95,26 @@ class Solver:
 
         # Build the global system
         A = sps.block_diag([M_s, M_w])
-        B = sps.block_array([[-div_s, None], [asym, -div_w]])
-        spp = sps.block_array([[A, -B.T], [B, None]]).tocsc()
+        B = sps.block_array(
+            [
+                [-div_s, None],
+                [asym, -div_w],
+            ]
+        )
+        spp = sps.block_array(
+            [
+                [A, -B.T],
+                [B, None],
+            ]
+        ).tocsc()
 
         # Assemble the source terms
         r_for, u_for = self.build_bc_for(M_u, M_r, data_pb)
 
         # Assemble the right-hand side
         rhs = np.zeros(spp.shape[0])
-        rhs[split_idx[1] : split_idx[2]] -= u_for
-        rhs[split_idx[2] :] -= r_for
+        rhs[split_idx[1] : split_idx[2]] += u_for
+        rhs[split_idx[2] :] += r_for
 
         ls = pg.LinearSystem(spp, rhs)
         x = ls.solve()
@@ -211,7 +151,12 @@ class Solver:
 
         # Build the global matrices
         A = sps.block_diag([M_s, M_w]).tocsc()
-        B = sps.block_array([[-div_s, None], [asym, -div_w]]).tocsr()
+        B = sps.block_array(
+            [
+                [-div_s, None],
+                [asym, -div_w],
+            ]
+        ).tocsr()
 
         # solve the block diagonal system
         ls = pg.LinearSystem(A, B.T)
@@ -222,8 +167,8 @@ class Solver:
 
         # Assemble the right-hand side
         rhs = np.zeros(dofs.sum())
-        rhs[: split_idx[0]] -= u_for
-        rhs[split_idx[0] :] -= r_for
+        rhs[: split_idx[0]] += u_for
+        rhs[split_idx[0] :] += r_for
 
         return inv_ABT, B, rhs, split_idx, data, data_pb, dofs
 
@@ -249,20 +194,19 @@ class Solver:
 
     def build_mass(self, data, is_lumped):
         mu = data[pp.PARAMETERS][self.key]["mu"]
-        mu_c = data[pp.PARAMETERS][self.key]["mu_c"]
 
         if is_lumped:
             M_s = self.dis_s.assemble_lumped_matrix_cosserat(self.sd, data)
             if self.dim == 2:
                 M_w = self.dis_w.assemble_lumped_matrix(self.sd, data)
-                M_w /= mu + mu_c
+                M_w /= 2 * mu
             else:
                 M_w = self.dis_w.assemble_lumped_matrix_cosserat(self.sd, data)
         else:
             M_s = self.dis_s.assemble_mass_matrix_cosserat(self.sd, data)
             if self.dim == 2:
                 M_w = self.dis_w.assemble_mass_matrix(self.sd, data)
-                M_w /= mu + mu_c
+                M_w /= 2 * mu
             else:
                 M_w = self.dis_w.assemble_mass_matrix_cosserat(self.sd, data)
 
@@ -286,17 +230,19 @@ class Solver:
         else:
             err_r = self.vec_p2.error_l2(self.sd, r_p2, r_ex)
 
-        self.visualize_errors(s, w, u, r, s_ex, w_ex, u_ex, r_ex)
+        # self.visualize_errors(s, w, u, r, s_ex, w_ex, u_ex, r_ex, data_pb)
 
         return err_s, err_w, err_u, err_r
 
-    def visualize_errors(self, s, w, u, r, s_ex, w_ex, u_ex, r_ex):
+    def visualize_errors(self, s, w, u, r, s_ex, w_ex, u_ex, r_ex, data_pb):
         import porepy as pp
 
         disc_sol = (s, w, u, r)
         ex_sol = (s_ex, w_ex, u_ex, r_ex)
         disc_list = (self.dis_s, self.dis_w, self.dis_u, self.dis_r)
         errors = []
+        sols = []
+        ex_sols = []
 
         for sol, ex, disc in zip(disc_sol, ex_sol, disc_list):
             err = disc.interpolate(self.sd, ex) - sol
@@ -305,9 +251,30 @@ class Solver:
             err = err.reshape((-1, self.sd.num_cells))
             errors.append(err)
 
+            sol_i = disc.eval_at_cell_centers(self.sd) @ sol
+            sols.append(sol_i.reshape((-1, self.sd.num_cells)))
+
+            ex_sol_i = disc.interpolate(self.sd, ex)
+            ex_sol_i = disc.eval_at_cell_centers(self.sd) @ ex_sol_i
+            ex_sols.append(ex_sol_i.reshape((-1, self.sd.num_cells)))
+
+        ell = data_pb["ell"]
+        ell = self.l1.interpolate(self.sd, ell)
+        ell = self.l1.eval_at_cell_centers(self.sd) @ ell
+
         save = pp.Exporter(self.sd, "errors")
         save.write_vtu(
-            list(zip(("sigma", "omega", "displacement", "rotation"), errors))
+            list(
+                zip(
+                    ("sigma_err", "omega_err", "displacement_err", "rotation_err"),
+                    errors,
+                )
+            )
+            + list(zip(("sigma", "omega", "displacement", "rotation"), sols))
+            + list(
+                zip(("sigma_ex", "omega_ex", "displacement_ex", "rotation_ex"), ex_sols)
+            )
+            + [("ell", ell)],
         )
 
         pass
@@ -356,6 +323,8 @@ class SolverBDM1_P0(Solver):
         err_w = self.dis_w.error_l2(self.sd, w, w_ex)
         err_u = self.dis_u.error_l2(self.sd, u, u_ex)
         err_r = self.dis_r.error_l2(self.sd, r, r_ex)
+
+        # self.visualize_errors(s, w, u, r, s_ex, w_ex, u_ex, r_ex, data_pb)
 
         return err_s, err_w, err_u, err_r
 

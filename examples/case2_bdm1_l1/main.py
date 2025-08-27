@@ -30,9 +30,9 @@ if __name__ == "__main__":
             # Run the lumped case
             file_name = name + "_lump.tex"
             print("solve " + file_name)
-            run[dim](solve_lumped, folder, file_name, d_setup, solver_class)
+            # run[dim](solve_lumped, folder, file_name, d_setup, solver_class)
 
             # Run the non-lumped case
             file_name = name + ".tex"
             print("solve " + file_name)
-            # run[dim](solve_not_lumped, folder, file_name, d_setup, solver_class)
+            run[dim](solve_not_lumped, folder, file_name, d_setup, solver_class)

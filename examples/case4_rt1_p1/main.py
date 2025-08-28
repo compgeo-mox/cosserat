@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     solver_class = SolverRT1_P1
     dims = [3]  # 2, 3
-    alphas_betas = [(0, 1), (1, 0)]
+    alphas_betas = [(1, 0)]  # [(0, 1), (1, 0)]
 
     run = {2: run_2d, 3: run_3d}
     for dim in dims:

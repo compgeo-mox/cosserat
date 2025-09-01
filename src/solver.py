@@ -118,7 +118,12 @@ class Solver:
 
         # ls = pg.LinearSystem(spp, rhs)
         # x = ls.solve()
-        x, _ = sps.linalg.bicgstab(spp, rhs, rtol=tol)
+
+        ilu = sps.linalg.spilu(A, drop_tol=1e-2, fill_factor=1.0)  # ILU factorization
+        M_x = lambda x: ilu.solve(x)
+        M = sps.linalg.LinearOperator(A.shape, M_x)
+
+        x, _ = sps.linalg.bicgstab(spp, rhs, M=M, rtol=tol)
 
         s, w, u, r = np.split(x, split_idx)
 

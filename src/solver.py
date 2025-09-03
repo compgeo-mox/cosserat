@@ -75,7 +75,7 @@ class Solver:
 
         self.sd.compute_geometry()
 
-    def solve_problem(self, data, data_pb, tol=1e-10):
+    def solve_problem(self, data, data_pb, tol=1e-6):
         # Compute the number of dofs
         dofs = np.array(
             [
@@ -118,12 +118,7 @@ class Solver:
 
         # ls = pg.LinearSystem(spp, rhs)
         # x = ls.solve()
-
-        ilu = sps.linalg.spilu(A, drop_tol=1e-2, fill_factor=1.0)  # ILU factorization
-        M_x = lambda x: ilu.solve(x)
-        M = sps.linalg.LinearOperator(A.shape, M_x)
-
-        x, _ = sps.linalg.bicgstab(spp, rhs, M=M, rtol=tol)
+        x, _ = sps.linalg.minres(spp, rhs, rtol=tol)
 
         s, w, u, r = np.split(x, split_idx)
 

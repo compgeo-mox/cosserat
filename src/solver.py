@@ -113,12 +113,46 @@ class Solver:
 
         # Assemble the right-hand side
         rhs = np.zeros(spp.shape[0])
-        rhs[split_idx[1] : split_idx[2]] += u_for
-        rhs[split_idx[2] :] += r_for
+        rhs[split_idx[1] : split_idx[2]] -= u_for
+        rhs[split_idx[2] :] -= r_for
 
-        ls = pg.LinearSystem(spp, -rhs)
-        x = ls.solve()
-        # x, _ = sps.linalg.minres(spp, rhs, rtol=tol)
+        # create preconditioner
+        M_s_l, M_w_l, _, _ = self.build_mass(data, is_lumped=True)
+        A_l = sps.block_diag([M_s_l, M_w_l]).tocsc()
+
+        # solve the block diagonal system
+        ls = pg.LinearSystem(A_l, B.T)
+        inv_ABT = ls.solve(pg.block_diag_solver)
+        BABT = B @ inv_ABT
+
+        chol = cholesky(BABT.tocsc())
+
+        def solve_prec(b):
+            b_sw = b[: A_l.shape[0]]
+            b_ur = b[A_l.shape[0] :]
+
+            ls = pg.LinearSystem(A_l, b_sw)
+            g = ls.solve(pg.block_diag_solver_dense)
+
+            ur = -chol.solve_A(b_ur + B @ g)
+            sw = g + inv_ABT @ ur
+
+            return np.concatenate((sw, ur))
+
+        P = sps.linalg.LinearOperator(spp.shape, matvec=solve_prec)
+
+        # ls = pg.LinearSystem(spp, rhs)
+        # x = ls.solve()
+        class Callback:
+            def __init__(self):
+                self.niter = 0
+
+            def __call__(self, rk=None):
+                self.niter += 1
+
+        callback = Callback()
+        x, _ = sps.linalg.gmres(spp, rhs, M=P, rtol=tol, callback=callback)
+        print(f"MINRES converged in {callback.niter} iterations")
 
         s, w, u, r = np.split(x, split_idx)
 
@@ -129,7 +163,6 @@ class Solver:
         return h, *err, np.sum(dofs)
 
     def solve_problem_lumped(self, data, data_pb, tol=1e-6):
-        # Step 1: Solve the lumped system
         info = self.step1(data, data_pb)
         return self.step2(*info, tol)
 
